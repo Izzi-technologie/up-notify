@@ -20,7 +20,7 @@ Si aucun APK n'est disponible, `404` :
 { "error": "APK not found" }
 ```
 
-Le serveur lit `APK_PATH`, sinon `server/apk/WebhookAlarm-TV-release.apk`, sinon l'APK Gradle release puis debug.
+Le serveur lit `APK_PATH`, sinon `IzziWebhookAlarm-v*.apk` / `IzziWebhookAlarm-release.apk` dans `server/apk/` (puis les anciens noms `WebhookAlarm-TV-*`), sinon l'APK Gradle release puis debug.
 
 ## GET /health
 

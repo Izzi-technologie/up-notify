@@ -1,10 +1,20 @@
 package com.wayscompany.webhookalarm.ui
 
+import androidx.compose.foundation.border
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import com.wayscompany.webhookalarm.model.AlertEvent
 import com.wayscompany.webhookalarm.model.Severity
 import com.wayscompany.webhookalarm.ui.components.LabeledValue
@@ -30,21 +40,12 @@ fun HomeScreen(
 ) {
     ScreenShell {
         item {
-            ScreenHeader(
-                title = "WEBHOOK ALARM",
-                trailing = { StatusBadge(connection) },
+            HomeOverview(
+                connection = connection,
+                deviceId = deviceId,
+                serverUrl = serverUrl,
+                lastEvent = lastEvent,
             )
-        }
-        item {
-            TvPanel {
-                LabeledValue(label = "Device", value = deviceId)
-                LabeledValue(label = "Server", value = serverUrl)
-                LabeledValue(
-                    label = "Last event",
-                    value = lastEvent?.message?.ifBlank { lastEvent.title } ?: "None",
-                    caption = displayTime(lastEvent?.timestamp),
-                )
-            }
         }
         item {
             Column(
@@ -77,5 +78,41 @@ fun HomeScreen(
             )
         }
         item { ScreenFooter() }
+    }
+}
+
+@Composable
+private fun HomeOverview(
+    connection: ConnectionState,
+    deviceId: String,
+    serverUrl: String,
+    lastEvent: AlertEvent?,
+) {
+    var focused by remember { mutableStateOf(false) }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .onFocusChanged { focused = it.isFocused }
+            .focusable()
+            .border(
+                width = 2.dp,
+                color = if (focused) AlarmColors.Focus else Color.Transparent,
+                shape = RoundedCornerShape(AlarmDimens.cornerRadius),
+            ),
+        verticalArrangement = Arrangement.spacedBy(AlarmDimens.sectionGap),
+    ) {
+        ScreenHeader(
+            title = "IZZI WEBHOOK ALARM",
+            trailing = { StatusBadge(connection) },
+        )
+        TvPanel {
+            LabeledValue(label = "Device", value = deviceId)
+            LabeledValue(label = "Server", value = serverUrl)
+            LabeledValue(
+                label = "Last event",
+                value = lastEvent?.message?.ifBlank { lastEvent.title } ?: "None",
+                caption = displayTime(lastEvent?.timestamp),
+            )
+        }
     }
 }

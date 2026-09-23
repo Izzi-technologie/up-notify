@@ -10,7 +10,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.tv.material3.Text
+import androidx.compose.material3.Text
 import com.wayscompany.webhookalarm.ui.components.ScreenFooter
 import com.wayscompany.webhookalarm.ui.components.ScreenHeader
 import com.wayscompany.webhookalarm.ui.components.ScreenShell
@@ -43,8 +43,8 @@ fun SetupScreen(
     ScreenShell {
         item {
             ScreenHeader(
-                title = "WEBHOOK ALARM",
-                subtitle = "Configure your TV",
+                title = "IZZI WEBHOOK ALARM",
+                subtitle = "Connect this device to your alarm server",
                 trailing = { StatusBadge(connection) },
                 supporting = { ScreenFooter() },
             )

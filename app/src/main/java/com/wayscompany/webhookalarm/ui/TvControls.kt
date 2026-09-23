@@ -1,13 +1,16 @@
 package com.wayscompany.webhookalarm.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -15,6 +18,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -30,15 +36,11 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.tv.material3.Border
-import androidx.tv.material3.Button
-import androidx.tv.material3.ButtonDefaults
-import androidx.tv.material3.Text
-import androidx.compose.foundation.BorderStroke
 import com.wayscompany.webhookalarm.ui.theme.AlarmColors
 import com.wayscompany.webhookalarm.ui.theme.AlarmDimens
 import com.wayscompany.webhookalarm.ui.theme.AlarmTypography
@@ -57,45 +59,42 @@ fun TvButton(
     variant: TvButtonVariant = TvButtonVariant.Primary,
     tint: Color? = null,
 ) {
-    val shape = RoundedCornerShape(AlarmDimens.cornerRadius)
+    var focused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(AlarmDimens.buttonCornerRadius)
     val palette = buttonPalette(variant, tint)
-    val restBorder = Border(
-        border = BorderStroke(
-            width = if (variant == TvButtonVariant.Secondary && tint == null) 1.dp else 2.dp,
-            color = palette.border,
-        ),
-        shape = shape,
-    )
-    val focusBorder = Border(
-        border = BorderStroke(width = 3.dp, color = palette.focusedBorder),
-        shape = shape,
-    )
+    val container = if (focused) palette.focusedContainer else palette.container
+    val content = if (focused) palette.focusedContent else palette.content
+    val borderColor = if (focused) palette.focusedBorder else palette.border
     Button(
         onClick = onClick,
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(min = AlarmDimens.buttonMinHeight),
-        shape = ButtonDefaults.shape(shape = shape),
-        colors = ButtonDefaults.colors(
-            containerColor = palette.container,
-            contentColor = palette.content,
-            focusedContainerColor = palette.focusedContainer,
-            focusedContentColor = palette.focusedContent,
-            pressedContainerColor = palette.focusedContainer,
-            pressedContentColor = palette.focusedContent,
+            .height(AlarmDimens.buttonMinHeight)
+            .onFocusChanged { focused = it.isFocused }
+            .border(width = if (focused) 2.dp else 1.dp, color = borderColor, shape = shape),
+        shape = shape,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = container,
+            contentColor = content,
         ),
-        border = ButtonDefaults.border(
-            border = restBorder,
-            focusedBorder = focusBorder,
-            pressedBorder = focusBorder,
-        ),
+        contentPadding = PaddingValues(horizontal = 24.dp, vertical = 0.dp),
     ) {
-        Text(
-            text = text,
-            modifier = Modifier.fillMaxWidth(),
-            style = AlarmTypography.body,
-            textAlign = TextAlign.Center,
-        )
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = text,
+                modifier = Modifier.fillMaxWidth(),
+                style = AlarmTypography.body.copy(
+                    lineHeight = AlarmTypography.body.fontSize,
+                    platformStyle = PlatformTextStyle(includeFontPadding = false),
+                ),
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
     }
 }
 
@@ -254,7 +253,7 @@ fun InlineAdjust(
         }
         Text(
             text = label,
-            modifier = Modifier.widthIn(min = InlineLabelMinWidth),
+            modifier = Modifier.widthIn(min = AlarmDimens.inlineLabelMinWidth),
             color = AlarmColors.Text,
             style = AlarmTypography.body,
             textAlign = TextAlign.Center,
@@ -268,8 +267,6 @@ fun InlineAdjust(
         }
     }
 }
-
-private val InlineLabelMinWidth = 220.dp
 
 private data class ButtonPalette(
     val container: Color,

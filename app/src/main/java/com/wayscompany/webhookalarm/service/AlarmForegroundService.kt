@@ -157,7 +157,7 @@ class AlarmForegroundService : Service() {
     private fun acquireWakeLock() {
         // Held for the life of the foreground service so the socket stays up on a dedicated TV.
         val power = getSystemService(Context.POWER_SERVICE) as PowerManager
-        val lock = power.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "WebhookAlarm:socket")
+        val lock = power.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "IzziWebhookAlarm:socket")
         lock.setReferenceCounted(false)
         lock.acquire()
         wakeLock = lock

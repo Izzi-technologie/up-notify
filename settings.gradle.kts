@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "WebhookAlarmTV"
+rootProject.name = "IzziWebhookAlarm"
 include(":app")

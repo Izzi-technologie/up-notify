@@ -10,7 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wayscompany.webhookalarm.alarm.AlertState
 import com.wayscompany.webhookalarm.ui.theme.AlarmColors
-import com.wayscompany.webhookalarm.ui.theme.WebhookAlarmTheme
+import com.wayscompany.webhookalarm.ui.theme.IzziWebhookAlarmTheme
 
 @Composable
 fun AlarmApp(viewModel: MainViewModel) {
@@ -22,7 +22,7 @@ fun AlarmApp(viewModel: MainViewModel) {
     val screen by viewModel.screen.collectAsStateWithLifecycle()
     val alertVisible = alert !is AlertState.Idle
 
-    WebhookAlarmTheme {
+    IzziWebhookAlarmTheme {
         BackHandler(enabled = screen == AppScreen.Settings && !alertVisible) {
             viewModel.closeSettings()
         }

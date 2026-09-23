@@ -24,7 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.tv.material3.Text
+import androidx.compose.material3.Text
 import com.wayscompany.webhookalarm.alarm.AlertPresentation
 import com.wayscompany.webhookalarm.alarm.AlertState
 import com.wayscompany.webhookalarm.alarm.presentationFor

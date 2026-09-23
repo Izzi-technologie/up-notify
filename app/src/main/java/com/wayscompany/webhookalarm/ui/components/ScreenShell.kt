@@ -22,11 +22,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import androidx.tv.material3.Border
-import androidx.tv.material3.Surface
-import androidx.tv.material3.SurfaceDefaults
-import androidx.tv.material3.Text
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import com.wayscompany.webhookalarm.ui.AppVersionLine
 import com.wayscompany.webhookalarm.ui.theme.AlarmColors
 import com.wayscompany.webhookalarm.ui.theme.AlarmDimens
@@ -118,16 +115,12 @@ fun TvPanel(
 ) {
     val shape = RoundedCornerShape(AlarmDimens.cornerRadius)
     Surface(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .border(width = 1.dp, color = borderColor, shape = shape),
         shape = shape,
-        colors = SurfaceDefaults.colors(
-            containerColor = containerColor,
-            contentColor = AlarmColors.Text,
-        ),
-        border = Border(
-            border = BorderStroke(width = 1.dp, color = borderColor),
-            shape = shape,
-        ),
+        color = containerColor,
+        contentColor = AlarmColors.Text,
     ) {
         Column(
             modifier = Modifier

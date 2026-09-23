@@ -59,10 +59,19 @@ function serverRoot(): string {
   return path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 }
 
+const VERSIONED_APK_PREFIXES = ["IzziWebhookAlarm-v", "WebhookAlarm-TV-v"] as const;
+
+function isVersionedApk(name: string): boolean {
+  return (
+    name.endsWith(".apk") &&
+    VERSIONED_APK_PREFIXES.some((prefix) => name.startsWith(prefix))
+  );
+}
+
 function versionedApks(directory: string): string[] {
   try {
     return readdirSync(directory)
-      .filter((name) => name.startsWith("WebhookAlarm-TV-v") && name.endsWith(".apk"))
+      .filter(isVersionedApk)
       .sort()
       .reverse()
       .map((name) => path.join(directory, name));
@@ -77,15 +86,16 @@ export function apkCandidates(): string[] {
   const root = serverRoot();
   const apkDir = path.join(root, "apk");
   const releaseDir = path.resolve(root, "../app/build/outputs/apk/release");
+  const debugDir = path.resolve(root, "../app/build/outputs/apk/debug");
   return [
     ...versionedApks(apkDir),
+    path.join(apkDir, "IzziWebhookAlarm-release.apk"),
     path.join(apkDir, "WebhookAlarm-TV-release.apk"),
     ...versionedApks(releaseDir),
+    path.join(releaseDir, "IzziWebhookAlarm-release.apk"),
     path.join(releaseDir, "WebhookAlarm-TV-release.apk"),
-    path.resolve(
-      root,
-      "../app/build/outputs/apk/debug/WebhookAlarm-TV-debug.apk",
-    ),
+    path.join(debugDir, "IzziWebhookAlarm-debug.apk"),
+    path.join(debugDir, "WebhookAlarm-TV-debug.apk"),
   ];
 }
 
@@ -106,7 +116,7 @@ async function resolveApkPath(
 
 function apkFilename(filePath: string): string {
   const base = path.basename(filePath).replace(/["\r\n]/g, "");
-  return base.length > 0 ? base : "WebhookAlarm-TV.apk";
+  return base.length > 0 ? base : "IzziWebhookAlarm.apk";
 }
 
 type AppOptions = {

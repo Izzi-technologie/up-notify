@@ -32,4 +32,5 @@ coverage/
 
 server/apk/*
 !server/apk/.gitkeep
+!server/apk/IzziWebhookAlarm-release.apk
 !server/apk/WebhookAlarm-TV-release.apk

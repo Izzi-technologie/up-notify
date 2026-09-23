@@ -9,7 +9,7 @@ interface AlarmLogger {
 }
 
 object AndroidAlarmLogger : AlarmLogger {
-    private const val TAG = "WebhookAlarm"
+    private const val TAG = "IzziWebhookAlarm"
 
     override fun i(message: String) {
         Log.i(TAG, message)

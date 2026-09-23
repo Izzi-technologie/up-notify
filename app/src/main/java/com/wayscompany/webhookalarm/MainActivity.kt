@@ -47,14 +47,7 @@ class MainActivity : ComponentActivity() {
             notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
         setContent {
-            AlarmApp(
-                viewModel = viewModel,
-                onRequestNotifications = {
-                    if (Build.VERSION.SDK_INT >= 33) {
-                        notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
-                    }
-                },
-            )
+            AlarmApp(viewModel = viewModel)
         }
     }
 }

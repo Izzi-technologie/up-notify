@@ -20,5 +20,4 @@
     <string name="phone_permissions_full_screen">Full-screen alerts</string>
     <string name="phone_permissions_battery">Unrestricted battery</string>
     <string name="phone_permissions_grant">Open settings</string>
-    <string name="phone_permissions_ready">Background alerts are configured.</string>
 </resources>

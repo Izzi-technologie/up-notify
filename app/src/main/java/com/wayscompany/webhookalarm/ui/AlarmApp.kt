@@ -9,13 +9,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wayscompany.webhookalarm.alarm.AlertState
+import com.wayscompany.webhookalarm.settings.DeviceKey
 import com.wayscompany.webhookalarm.ui.theme.AlarmColors
 import com.wayscompany.webhookalarm.ui.theme.IzziWebhookAlarmTheme
 
 @Composable
 fun AlarmApp(
     viewModel: MainViewModel,
-    onRequestNotifications: () -> Unit,
 ) {
     val loaded by viewModel.loaded.collectAsStateWithLifecycle()
     val settings by viewModel.settings.collectAsStateWithLifecycle()
@@ -33,13 +33,13 @@ fun AlarmApp(
             viewModel.dismiss()
         }
         Box(modifier = Modifier.fillMaxSize().background(AlarmColors.Background)) {
-            if (!loaded) {
+            if (!loaded || !DeviceKey.isValid(settings.deviceId)) {
                 Box(modifier = Modifier.fillMaxSize().background(AlarmColors.Background))
             } else if (!settings.setupCompleted) {
                 SetupScreen(
                     connection = connection,
                     initialServerUrl = settings.serverUrl,
-                    initialDeviceId = settings.deviceId,
+                    deviceId = settings.deviceId,
                     initialAuthToken = settings.authToken,
                     onConnect = viewModel::connect,
                     onContinue = viewModel::continueSetup,
@@ -59,7 +59,6 @@ fun AlarmApp(
                     lastEvent = lastEvent,
                     onTest = viewModel::test,
                     onSettings = viewModel::openSettings,
-                    onRequestNotifications = onRequestNotifications,
                 )
             }
             AlertOverlay(

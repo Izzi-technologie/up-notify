@@ -69,9 +69,9 @@ test("download serves the apk and stays public", async (t) => {
   assert.deepEqual(await missing.json(), { error: "APK not found" });
 });
 
-test("returns 404 when the TV is offline", async () => {
-  const { app } = createApp();
-  const response = await app.request("/webhook/device-001", {
+test("queues an alert and its resolution while the device is offline", async () => {
+  const { app, registry } = createApp();
+  const response = await app.request("/webhook/K7M2P", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
@@ -80,20 +80,118 @@ test("returns 404 when the TV is offline", async () => {
       monitor: { name: "Production API" },
     }),
   });
-  assert.equal(response.status, 404);
-  assert.deepEqual(await response.json(), { error: "Device not connected" });
+  assert.equal(response.status, 202);
+  const queued = (await response.json()) as {
+    delivered: boolean;
+    queued: boolean;
+    type: string;
+    id: string;
+  };
+  assert.equal(queued.delivered, false);
+  assert.equal(queued.queued, true);
+  assert.equal(queued.type, "alert");
+  assert.match(queued.id, /^evt_/);
+
+  const resolved = await app.request("/webhook/K7M2P", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ status: "up" }),
+  });
+  assert.equal(resolved.status, 202);
+  assert.deepEqual(await resolved.json(), {
+    delivered: false,
+    queued: true,
+    type: "alert_resolved",
+    id: queued.id,
+  });
+  assert.deepEqual(
+    registry.drain("K7M2P").map((message) => message.type),
+    ["alert", "alert_resolved"],
+  );
+});
+
+test("rejects a device id that is not a 5 character key", async () => {
+  const { app } = createApp();
+  const response = await app.request("/webhook/device-001", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ text: "down" }),
+  });
+  assert.equal(response.status, 400);
+  assert.deepEqual(await response.json(), { error: "Invalid device id" });
+});
+
+test("broadcasts an alert to every connected device", async () => {
+  const { app, registry } = createApp();
+  const first = fakeSocket();
+  const second = fakeSocket();
+  registry.connect("K7M2P", first);
+  registry.connect("B4NQ8", second);
+
+  const response = await app.request("/webhook/all", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      severity: "critical",
+      text: "Global incident",
+      monitor: { name: "Platform" },
+    }),
+  });
+  assert.equal(response.status, 202);
+  const body = (await response.json()) as {
+    broadcast: boolean;
+    targets: number;
+    delivered: number;
+    results: Array<{ deviceId: string; type: string }>;
+  };
+  assert.equal(body.broadcast, true);
+  assert.equal(body.targets, 2);
+  assert.equal(body.delivered, 2);
+  assert.equal(body.results.length, 2);
+  assert.deepEqual(body.results.map((item) => item.deviceId).sort(), [
+    "B4NQ8",
+    "K7M2P",
+  ]);
+  assert.equal(first.sent.length, 1);
+  assert.equal(second.sent.length, 1);
+  assert.equal(JSON.parse(first.sent[0]!).type, "alert");
+});
+
+test("broadcast queues for a known offline device", async () => {
+  const { app, registry } = createApp();
+  registry.rememberAlert("K7M2P", "evt_old");
+
+  const response = await app.request("/webhook/all", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      severity: "warning",
+      text: "Disk is filling",
+    }),
+  });
+  assert.equal(response.status, 202);
+  const body = (await response.json()) as {
+    targets: number;
+    queued: number;
+    results: Array<{ deviceId: string; queued: boolean }>;
+  };
+  assert.equal(body.targets, 1);
+  assert.equal(body.queued, 1);
+  assert.equal(body.results[0]?.deviceId, "K7M2P");
+  assert.equal(body.results[0]?.queued, true);
+  assert.equal(registry.drain("K7M2P")[0]?.type, "alert");
 });
 
 test("rejects invalid JSON and an empty device id", async () => {
   const { app } = createApp();
-  const invalid = await app.request("/webhook/device-001", {
+  const invalid = await app.request("/webhook/K7M2P", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: "not-json",
   });
   assert.equal(invalid.status, 400);
 
-  const arrayBody = await app.request("/webhook/device-001", {
+  const arrayBody = await app.request("/webhook/K7M2P", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: "[]",
@@ -111,9 +209,9 @@ test("rejects invalid JSON and an empty device id", async () => {
 test("delivers an alert and a later resolution to the connected TV", async () => {
   const { app, registry } = createApp();
   const socket = fakeSocket();
-  registry.connect("device-001", socket);
+  registry.connect("K7M2P", socket);
 
-  const alert = await app.request("/webhook/device-001", {
+  const alert = await app.request("/webhook/K7M2P", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
@@ -134,7 +232,7 @@ test("delivers an alert and a later resolution to the connected TV", async () =>
   assert.match(sentAlert.id, /^evt_/);
   assert.equal(socket.sent[0], JSON.stringify(sentAlert));
 
-  const resolved = await app.request("/webhook/device-001", {
+  const resolved = await app.request("/webhook/K7M2P", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ status: "up" }),
@@ -148,9 +246,9 @@ test("delivers an alert and a later resolution to the connected TV", async () =>
 test("accepts a resolution with no known id and sends nothing", async () => {
   const { app, registry } = createApp();
   const socket = fakeSocket();
-  registry.connect("device-001", socket);
+  registry.connect("K7M2P", socket);
 
-  const response = await app.request("/webhook/device-001", {
+  const response = await app.request("/webhook/K7M2P", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ type: "recovery" }),
@@ -172,14 +270,14 @@ test("requires the bearer token only when ALARM_TOKEN is set", async (t) => {
 
   process.env.ALARM_TOKEN = "secret";
   const { app } = createApp();
-  const denied = await app.request("/webhook/device-001", {
+  const denied = await app.request("/webhook/K7M2P", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: "{}",
   });
   assert.equal(denied.status, 401);
 
-  const wrong = await app.request("/webhook/device-001", {
+  const wrong = await app.request("/webhook/K7M2P", {
     method: "POST",
     headers: {
       "content-type": "application/json",
@@ -195,7 +293,7 @@ test("requires the bearer token only when ALARM_TOKEN is set", async (t) => {
   const health = await app.request("/health");
   assert.equal(health.status, 200);
 
-  const allowed = await app.request("/webhook/device-001", {
+  const allowed = await app.request("/webhook/K7M2P", {
     method: "POST",
     headers: {
       "content-type": "application/json",
@@ -203,7 +301,9 @@ test("requires the bearer token only when ALARM_TOKEN is set", async (t) => {
     },
     body: JSON.stringify({ text: "down" }),
   });
-  assert.equal(allowed.status, 404);
+  assert.equal(allowed.status, 202);
+  const queued = (await allowed.json()) as { queued?: boolean };
+  assert.equal(queued.queued, true);
 });
 
 test(
@@ -227,7 +327,7 @@ test(
           reject(new Error("websocket error"));
         });
         ws.addEventListener("open", () => {
-          ws.send(JSON.stringify({ type: "register", deviceId: "device-001" }));
+          ws.send(JSON.stringify({ type: "register", deviceId: "K7M2P" }));
         });
         ws.addEventListener("message", (event) => {
           const message = JSON.parse(String(event.data)) as { type?: string };
@@ -257,23 +357,149 @@ test(
         });
       });
 
-      const response = await fetch(
-        `http://127.0.0.1:${port}/webhook/device-001`,
-        {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            severity: "critical",
-            text: "Production API is down",
-            monitor: { name: "Production API" },
-          }),
-        },
-      );
+      const response = await fetch(`http://127.0.0.1:${port}/webhook/K7M2P`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          severity: "critical",
+          text: "Production API is down",
+          monitor: { name: "Production API" },
+        }),
+      });
       assert.equal(response.status, 202);
       const body = (await response.json()) as { type: string };
       assert.equal(body.type, "alert");
       assert.equal(JSON.parse(await received).type, "alert");
       second.close();
+    } finally {
+      server.close();
+      if (previous === undefined) delete process.env.ALARM_TOKEN;
+      else process.env.ALARM_TOKEN = previous;
+    }
+  },
+);
+
+test("queues when the live socket can no longer send", async () => {
+  const { app, registry } = createApp();
+  registry.connect("K7M2P", {
+    send() {
+      throw new Error("closed");
+    },
+    close() {},
+  });
+  const response = await app.request("/webhook/K7M2P", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ text: "down" }),
+  });
+  assert.equal(response.status, 202);
+  const body = (await response.json()) as { queued: boolean; id: string };
+  assert.equal(body.queued, true);
+  assert.equal(registry.get("K7M2P"), undefined);
+  assert.equal(registry.drain("K7M2P")[0]?.id, body.id);
+});
+
+test(
+  "flushes queued alerts on register and answers ping",
+  { timeout: 5_000 },
+  async () => {
+    const previous = process.env.ALARM_TOKEN;
+    delete process.env.ALARM_TOKEN;
+    const created = createApp();
+    const { server, port } = await listen(created);
+    try {
+      const queuedResponse = await fetch(
+        `http://127.0.0.1:${port}/webhook/K7M2P`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            severity: "warning",
+            text: "Disk is filling",
+          }),
+        },
+      );
+      assert.equal(queuedResponse.status, 202);
+      const queued = (await queuedResponse.json()) as { id: string };
+      const messages: Array<{ type?: string; id?: string }> = [];
+      const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`);
+      const waitFor = (ready: () => boolean, label: string) =>
+        new Promise<void>((resolve, reject) => {
+          const timeout = setTimeout(() => reject(new Error(label)), 2000);
+          const check = () => {
+            if (!ready()) return;
+            clearTimeout(timeout);
+            ws.removeEventListener("message", check);
+            resolve();
+          };
+          ws.addEventListener("message", check);
+          check();
+        });
+
+      ws.addEventListener("message", (event) => {
+        messages.push(JSON.parse(String(event.data)) as { type?: string });
+      });
+      await new Promise<void>((resolve, reject) => {
+        ws.addEventListener("open", () => {
+          ws.send(JSON.stringify({ type: "register", deviceId: "K7M2P" }));
+          resolve();
+        });
+        ws.addEventListener("error", () =>
+          reject(new Error("websocket error")),
+        );
+      });
+      await waitFor(
+        () =>
+          messages.some((message) => message.type === "connected") &&
+          messages.some((message) => message.type === "alert"),
+        "queued alert was not flushed",
+      );
+      assert.equal(messages[0]?.type, "connected");
+      assert.equal(messages[1]?.type, "alert");
+      assert.equal(messages[1]?.id, queued.id);
+
+      ws.send(JSON.stringify({ type: "ping" }));
+      await waitFor(
+        () => messages.some((message) => message.type === "pong"),
+        "pong was not received",
+      );
+      ws.close();
+    } finally {
+      server.close();
+      if (previous === undefined) delete process.env.ALARM_TOKEN;
+      else process.env.ALARM_TOKEN = previous;
+    }
+  },
+);
+
+test(
+  "ignores a register that is not a device key",
+  { timeout: 5_000 },
+  async () => {
+    const previous = process.env.ALARM_TOKEN;
+    delete process.env.ALARM_TOKEN;
+    const created = createApp();
+    const { server, port } = await listen(created);
+    try {
+      const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`);
+      let connected = false;
+      ws.addEventListener("message", (event) => {
+        const message = JSON.parse(String(event.data)) as { type?: string };
+        if (message.type === "connected") connected = true;
+      });
+      await new Promise<void>((resolve, reject) => {
+        ws.addEventListener("open", () => {
+          ws.send(JSON.stringify({ type: "register", deviceId: "device-001" }));
+          resolve();
+        });
+        ws.addEventListener("error", () =>
+          reject(new Error("websocket error")),
+        );
+      });
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      assert.equal(connected, false);
+      assert.equal(created.registry.get("device-001"), undefined);
+      ws.close();
     } finally {
       server.close();
       if (previous === undefined) delete process.env.ALARM_TOKEN;

@@ -55,10 +55,14 @@ class WebSocketManagerTest {
     }
 
     @Test
-    fun keepsASingleSocketWhileConnectedAndSendsRegister() = runTest {
-        val factory = FakeSocketFactory(failImmediately = false)
+    fun staysConnectingUntilTheServerConfirmsTheSession() = runTest {
+        val factory = FakeSocketFactory(failImmediately = false, autoPong = true)
         val manager = manager(factory, online = true)
         manager.start(settings())
+        runCurrent()
+        assertEquals(ConnectionState.Connecting, manager.state.value)
+        assertTrue(factory.sent.any { it.contains("\"type\":\"register\"") && it.contains("K7M2P") })
+        factory.deliver("""{"type":"connected","deviceId":"K7M2P"}""")
         runCurrent()
         assertEquals(ConnectionState.Connected, manager.state.value)
         assertEquals(1, factory.created)
@@ -66,8 +70,58 @@ class WebSocketManagerTest {
         advanceTimeBy(120_000)
         runCurrent()
         assertEquals(1, factory.created)
-        assertTrue(factory.sent.any { it.contains("\"type\":\"register\"") && it.contains("device-001") })
-        assertTrue(WsProtocol.register("device-001").contains("device-001"))
+        assertTrue(WsProtocol.register("K7M2P").contains("K7M2P"))
+        assertTrue(factory.sent.any { it.contains("\"type\":\"ping\"") })
+    }
+
+    @Test
+    fun reconnectsQuicklyAfterAnOpenSessionDrops() = runTest {
+        val factory = FakeSocketFactory(failImmediately = false, autoPong = true)
+        val manager = manager(factory, online = true)
+        manager.start(settings())
+        runCurrent()
+        factory.deliver("""{"type":"connected","deviceId":"K7M2P"}""")
+        runCurrent()
+        assertEquals(ConnectionState.Connected, manager.state.value)
+        factory.drop()
+        runCurrent()
+        assertEquals(ConnectionState.Disconnected, manager.state.value)
+        advanceTimeBy(299)
+        runCurrent()
+        assertEquals(1, factory.created)
+        advanceTimeBy(1)
+        runCurrent()
+        assertEquals(2, factory.created)
+        assertEquals(1, factory.maxLive)
+    }
+
+    @Test
+    fun registerTimeoutUsesTheFailureBackoff() = runTest {
+        val factory = FakeSocketFactory(failImmediately = false)
+        val manager = manager(factory, online = true)
+        manager.start(settings())
+        runCurrent()
+        assertEquals(ConnectionState.Connecting, manager.state.value)
+        advanceTimeBy(10_000)
+        runCurrent()
+        assertTrue(manager.state.value is ConnectionState.Error)
+        assertEquals(1, factory.created)
+        advanceTimeBy(4_999)
+        runCurrent()
+        assertEquals(1, factory.created)
+        advanceTimeBy(1)
+        runCurrent()
+        assertEquals(2, factory.created)
+    }
+
+    @Test
+    fun invalidDeviceKeyDoesNotRegister() = runTest {
+        val factory = FakeSocketFactory(failImmediately = false)
+        val manager = manager(factory, online = true)
+        manager.start(settings(deviceId = "device-001"))
+        runCurrent()
+        assertEquals(ConnectionState.Error("Invalid device key"), manager.state.value)
+        assertTrue(factory.sent.none { it.contains("register") })
     }
 
     @Test
@@ -85,9 +139,9 @@ class WebSocketManagerTest {
         assertEquals(1, factory.maxLive)
     }
 
-    private fun settings() = MutableStateFlow(
+    private fun settings(deviceId: String = "K7M2P") = MutableStateFlow(
         AppSettings(
-            deviceId = "device-001",
+            deviceId = deviceId,
             webSocketUrl = "wss://alarm.example.com/ws",
             setupCompleted = true,
         ),
@@ -97,15 +151,28 @@ class WebSocketManagerTest {
         WebSocketManager(factory, MutableStateFlow(online), backgroundScope)
 }
 
-private class FakeSocketFactory(private val failImmediately: Boolean) : SocketFactory {
+private class FakeSocketFactory(
+    private val failImmediately: Boolean,
+    private val autoPong: Boolean = false,
+) : SocketFactory {
     var created = 0
     var live = 0
     var maxLive = 0
     val sent = mutableListOf<String>()
+    private var callbacks: SocketCallbacks? = null
+
+    fun deliver(text: String) {
+        callbacks?.onMessage(text)
+    }
+
+    fun drop() {
+        callbacks?.onClosed()
+    }
 
     override fun open(url: String, headers: Map<String, String>, callbacks: SocketCallbacks): OpenSocket {
         check(live == 0) { "A second WebSocket was opened" }
         created += 1
+        this.callbacks = callbacks
         val socket = FakeSocket(callbacks)
         if (failImmediately) {
             callbacks.onFailure("boom")
@@ -122,6 +189,9 @@ private class FakeSocketFactory(private val failImmediately: Boolean) : SocketFa
 
         override fun send(text: String): Boolean {
             sent += text
+            if (autoPong && text.contains("\"type\":\"ping\"")) {
+                callbacks.onMessage("""{"type":"pong"}""")
+            }
             return true
         }
 

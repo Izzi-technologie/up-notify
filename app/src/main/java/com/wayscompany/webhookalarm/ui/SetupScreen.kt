@@ -12,6 +12,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.material3.Text
 import com.wayscompany.webhookalarm.ui.components.CopyableUrlRow
+import com.wayscompany.webhookalarm.ui.components.LabeledValue
 import com.wayscompany.webhookalarm.ui.components.ScreenFooter
 import com.wayscompany.webhookalarm.ui.components.ScreenHeader
 import com.wayscompany.webhookalarm.ui.components.ScreenShell
@@ -29,13 +30,12 @@ import com.wayscompany.webhookalarm.websocket.ConnectionState
 fun SetupScreen(
     connection: ConnectionState,
     initialServerUrl: String,
-    initialDeviceId: String,
+    deviceId: String,
     initialAuthToken: String,
-    onConnect: (serverUrl: String, deviceId: String, authToken: String) -> Unit,
+    onConnect: (serverUrl: String, authToken: String) -> Unit,
     onContinue: () -> Unit,
 ) {
     var serverUrl by rememberSaveable { mutableStateOf(initialServerUrl) }
-    var deviceId by rememberSaveable { mutableStateOf(initialDeviceId) }
     var authToken by rememberSaveable { mutableStateOf(initialAuthToken) }
     var error by rememberSaveable { mutableStateOf<String?>(null) }
     val connected = connection is ConnectionState.Connected
@@ -59,10 +59,10 @@ fun SetupScreen(
                     value = serverUrl,
                     onValueChange = { serverUrl = it },
                 )
-                TvTextField(
+                LabeledValue(
                     label = "Device ID",
                     value = deviceId,
-                    onValueChange = { deviceId = it },
+                    caption = "Assigned to this device",
                 )
                 TvTextField(
                     label = "Token (optional)",
@@ -120,11 +120,11 @@ fun SetupScreen(
                 TvButton(
                     text = "CONNECT",
                     onClick = {
-                        if (serverUrl.isBlank() || deviceId.isBlank()) {
-                            error = "Server URL and Device ID are required"
+                        if (serverUrl.isBlank()) {
+                            error = "Server URL is required"
                         } else {
                             error = null
-                            onConnect(serverUrl, deviceId, authToken)
+                            onConnect(serverUrl, authToken)
                         }
                     },
                     variant = if (connected) TvButtonVariant.Secondary else TvButtonVariant.Primary,

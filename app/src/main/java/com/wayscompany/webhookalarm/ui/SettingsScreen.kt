@@ -13,6 +13,7 @@ import androidx.compose.material3.Text
 import com.wayscompany.webhookalarm.model.Severity
 import com.wayscompany.webhookalarm.settings.AppSettings
 import com.wayscompany.webhookalarm.settings.SeverityPolicy
+import com.wayscompany.webhookalarm.ui.components.LabeledValue
 import com.wayscompany.webhookalarm.ui.components.ScreenFooter
 import com.wayscompany.webhookalarm.ui.components.ScreenHeader
 import com.wayscompany.webhookalarm.ui.components.ScreenShell
@@ -63,13 +64,10 @@ fun SettingsScreen(
                             saved = false
                         },
                     )
-                    TvTextField(
+                    LabeledValue(
                         label = "Device ID",
                         value = draft.deviceId,
-                        onValueChange = {
-                            draft = draft.copy(deviceId = it)
-                            saved = false
-                        },
+                        caption = "Assigned to this device",
                     )
                     TvTextField(
                         label = "WebSocket URL",

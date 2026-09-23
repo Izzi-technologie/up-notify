@@ -25,9 +25,9 @@ class MainViewModel(private val runtime: AppRuntime) : ViewModel() {
     private val _screen = MutableStateFlow(AppScreen.Home)
     val screen = _screen.asStateFlow()
 
-    fun connect(serverUrl: String, deviceId: String, authToken: String) {
+    fun connect(serverUrl: String, authToken: String) {
         viewModelScope.launch {
-            runtime.saveConnection(serverUrl, deviceId, authToken)
+            runtime.saveConnection(serverUrl, authToken)
             runtime.ensureStarted()
             runtime.reconnectNow()
         }

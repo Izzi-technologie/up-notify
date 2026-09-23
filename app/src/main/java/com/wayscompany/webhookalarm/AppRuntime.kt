@@ -8,6 +8,7 @@ import com.wayscompany.webhookalarm.model.Severity
 import com.wayscompany.webhookalarm.model.WsIncoming
 import com.wayscompany.webhookalarm.service.AlarmForegroundService
 import com.wayscompany.webhookalarm.settings.AppSettings
+import com.wayscompany.webhookalarm.settings.DeviceKey
 import com.wayscompany.webhookalarm.settings.SettingsRepository
 import com.wayscompany.webhookalarm.utils.AndroidAlarmLogger
 import com.wayscompany.webhookalarm.utils.deriveWebSocketUrl
@@ -55,11 +56,19 @@ class AppRuntime(context: Context) {
     val alertState = engine.state
     val lastEvent = engine.lastEvent
 
+    init {
+        scope.launch {
+            loaded.first { it }
+            ensureDeviceKey()
+        }
+    }
+
     fun ensureStarted() {
         if (started) return
         started = true
         scope.launch {
             loaded.first { it }
+            settings.first { DeviceKey.isValid(it.deviceId) }
             combine(settings, connectionRequested) { current, requested ->
                 current.setupCompleted || requested
             }.first { it }
@@ -78,16 +87,23 @@ class AppRuntime(context: Context) {
         settingsRepository.save(settings)
     }
 
-    suspend fun saveConnection(serverUrl: String, deviceId: String, authToken: String) {
+    suspend fun saveConnection(serverUrl: String, authToken: String) {
         settingsRepository.update { current ->
             current.copy(
                 serverUrl = serverUrl.trim(),
-                deviceId = deviceId.trim(),
                 webSocketUrl = deriveWebSocketUrl(serverUrl),
                 authToken = authToken.trim(),
             )
         }
         connectionRequested.value = true
+    }
+
+    private suspend fun ensureDeviceKey() {
+        if (DeviceKey.isValid(settings.value.deviceId)) return
+        settingsRepository.update { current ->
+            val resolved = DeviceKey.resolve(current.deviceId)
+            if (resolved == current.deviceId) current else current.copy(deviceId = resolved)
+        }
     }
 
     suspend fun completeSetup() {

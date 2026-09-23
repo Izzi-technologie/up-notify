@@ -4,6 +4,7 @@ import com.wayscompany.webhookalarm.data.AlertParser
 import com.wayscompany.webhookalarm.model.WsIncoming
 import com.wayscompany.webhookalarm.model.WsProtocol
 import com.wayscompany.webhookalarm.settings.AppSettings
+import com.wayscompany.webhookalarm.settings.DeviceKey
 import com.wayscompany.webhookalarm.utils.AlarmLogger
 import com.wayscompany.webhookalarm.utils.NoOpLogger
 import com.wayscompany.webhookalarm.utils.normalizeWebSocketUrl
@@ -12,7 +13,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -24,6 +27,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.selects.onTimeout
 import kotlinx.coroutines.selects.select
+import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 
@@ -135,12 +139,16 @@ class WebSocketManager(
                 continue
             }
             synchronized(lock) { current = socket }
-            val registerJob = scope.launch {
-                session.openSignal.await()
-                if (session.opened) sendRegister()
+            coroutineScope {
+                val registerJob = launch { awaitRegister(session) }
+                val heartbeatJob = launch { heartbeat(session) }
+                try {
+                    session.closed.await()
+                } finally {
+                    registerJob.cancel()
+                    heartbeatJob.cancel()
+                }
             }
-            session.closed.await()
-            registerJob.cancel()
             closeCurrent()
             if (stopped) break
             if (!networkOnline.value) continue
@@ -149,14 +157,15 @@ class WebSocketManager(
                 failures = 0
                 continue
             }
-            if (session.opened) {
+            val failedOpen = session.registerTimedOut || session.registerRejected || !session.opened
+            if (failedOpen) {
+                failures++
+                if (!waitBackoff(backoff((failures - 1).coerceAtLeast(0)), resetFailures = { failures = 0 })) break
+            } else {
                 failures = 0
                 _state.value = ConnectionState.Disconnected
                 logger.i("WebSocket disconnected")
-                if (!waitBackoff(backoff(0), resetFailures = { failures = 0 })) break
-            } else {
-                failures++
-                if (!waitBackoff(backoff((failures - 1).coerceAtLeast(0)), resetFailures = { failures = 0 })) break
+                if (!waitBackoff(ReconnectBackoff.unexpectedCloseMs, resetFailures = { failures = 0 })) break
             }
         }
     }
@@ -164,19 +173,24 @@ class WebSocketManager(
     private fun sessionCallbacks(session: Session) = object : SocketCallbacks {
         override fun onOpen() {
             session.opened = true
-            _state.value = ConnectionState.Connected
-            logger.i("WebSocket connected")
+            logger.i("WebSocket socket open")
             session.finishOpen()
         }
 
         override fun onMessage(text: String) {
+            if (WsProtocol.isPong(text)) {
+                session.notePong()
+                return
+            }
             val parsed = AlertParser.parse(text)
             if (parsed == null) {
                 logger.w("Ignored websocket message")
                 return
             }
             if (parsed is WsIncoming.Connected) {
-                logger.i("WebSocket session confirmed")
+                session.noteRegistered()
+                _state.value = ConnectionState.Connected
+                logger.i("WebSocket connected")
             }
             _incoming.tryEmit(parsed)
         }
@@ -194,10 +208,71 @@ class WebSocketManager(
         }
     }
 
-    private fun sendRegister() {
-        val deviceId = settingsRef.get().deviceId
-        send(WsProtocol.register(deviceId))
-        flushPending()
+    private suspend fun awaitRegister(session: Session) {
+        val opened = select {
+            session.openSignal.onAwait { true }
+            session.closed.onAwait { false }
+        }
+        if (!opened || !session.opened || session.closed.isCompleted) return
+        if (!sendRegister()) {
+            session.registerRejected = true
+            if (_state.value !is ConnectionState.Error) {
+                _state.value = ConnectionState.Error("Register failed")
+            }
+            closeCurrent()
+            return
+        }
+        val acked = withTimeoutOrNull(ReconnectBackoff.registerAckMs) {
+            select {
+                session.registered.onAwait { true }
+                session.closed.onAwait { false }
+            }
+        }
+        if (session.closed.isCompleted) return
+        if (acked != true) {
+            session.registerTimedOut = true
+            _state.value = ConnectionState.Error("Register timed out")
+            logger.w("WebSocket register timed out")
+            closeCurrent()
+        }
+    }
+
+    private suspend fun heartbeat(session: Session) {
+        val registered = select {
+            session.registered.onAwait { true }
+            session.closed.onAwait { false }
+        }
+        if (!registered || session.closed.isCompleted) return
+        while (currentCoroutineContext().isActive && !session.closed.isCompleted) {
+            while (session.pongs.tryReceive().isSuccess) Unit
+            if (!send(WsProtocol.ping())) {
+                logger.w("WebSocket ping failed")
+                closeCurrent()
+                return
+            }
+            val pong = withTimeoutOrNull(ReconnectBackoff.pongTimeoutMs) {
+                session.pongs.receive()
+            }
+            if (session.closed.isCompleted) return
+            if (pong == null) {
+                logger.w("WebSocket pong timeout")
+                closeCurrent()
+                return
+            }
+            delay(ReconnectBackoff.pingIntervalMs)
+        }
+    }
+
+    private fun sendRegister(): Boolean {
+        val deviceId = settingsRef.get().deviceId.trim()
+        if (!DeviceKey.isValid(deviceId)) {
+            _state.value = ConnectionState.Error("Invalid device key")
+            logger.e("Invalid device key")
+            return false
+        }
+        val sent = send(WsProtocol.register(deviceId))
+        if (sent) flushPending()
+        return sent
     }
 
     private fun flushPending() {
@@ -255,13 +330,29 @@ class WebSocketManager(
 
     private class Session {
         val openSignal = CompletableDeferred<Unit>()
+        val registered = CompletableDeferred<Unit>()
         val closed = CompletableDeferred<Unit>()
+        val pongs = Channel<Unit>(Channel.CONFLATED)
 
         @Volatile
         var opened: Boolean = false
 
+        @Volatile
+        var registerTimedOut: Boolean = false
+
+        @Volatile
+        var registerRejected: Boolean = false
+
         fun finishOpen() {
             if (!openSignal.isCompleted) openSignal.complete(Unit)
+        }
+
+        fun noteRegistered() {
+            if (!registered.isCompleted) registered.complete(Unit)
+        }
+
+        fun notePong() {
+            pongs.trySend(Unit)
         }
 
         fun finish() {

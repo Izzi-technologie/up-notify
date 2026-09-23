@@ -13,7 +13,7 @@ class SettingsCodecTest {
     fun roundTripKeepsPolicies() {
         val settings = AppSettings(
             serverUrl = "https://alarm.example.com",
-            deviceId = "device-001",
+            deviceId = "K7M2P",
             webSocketUrl = "wss://alarm.example.com/ws",
             authToken = "later",
             setupCompleted = true,
@@ -33,6 +33,13 @@ class SettingsCodecTest {
         assertEquals(75, decoded.policies.warning.volumePercent)
         assertEquals(100, decoded.policies.critical.volumePercent)
         assertEquals(false, decoded.setupCompleted)
+        assertEquals("", decoded.deviceId)
+    }
+
+    @Test
+    fun storedDeviceIdIsKeptUntilTheRuntimeReplacesIt() {
+        val decoded = SettingsCodec.decode(mapOf("device_id" to "device-001"))
+        assertEquals("device-001", decoded.deviceId)
     }
 
     @Test
@@ -52,16 +59,16 @@ class SettingsCodecTest {
     @Test
     fun derivesWebhookUrl() {
         assertEquals(
-            "https://alarm.example.com/webhook/device-001",
-            deriveWebhookUrl("https://alarm.example.com", "device-001"),
+            "https://alarm.example.com/webhook/K7M2P",
+            deriveWebhookUrl("https://alarm.example.com", "K7M2P"),
         )
         assertEquals(
-            "https://alarm.example.com/webhook/device-001",
-            deriveWebhookUrl("wss://alarm.example.com/ws", "device-001"),
+            "https://alarm.example.com/webhook/K7M2P",
+            deriveWebhookUrl("wss://alarm.example.com/ws", "K7M2P"),
         )
         assertEquals(
-            "http://10.0.0.8:8080/webhook/device-002",
-            deriveWebhookUrl("http://10.0.0.8:8080", "device-002"),
+            "http://10.0.0.8:8080/webhook/B4NQ8",
+            deriveWebhookUrl("http://10.0.0.8:8080", "B4NQ8"),
         )
     }
 

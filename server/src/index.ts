@@ -9,8 +9,9 @@ import { serve } from "@hono/node-server";
 import { createNodeWebSocket } from "@hono/node-ws";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
+import { isDeviceKey, isReservedWebhookDeviceId } from "./device-key.js";
 import { DeviceRegistry } from "./registry.js";
-import { transformWebhook } from "./transform.js";
+import { transformWebhook, type OutgoingMessage } from "./transform.js";
 
 const MAX_BODY_BYTES = 64 * 1024;
 
@@ -59,7 +60,10 @@ function serverRoot(): string {
   return path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 }
 
-const VERSIONED_APK_PREFIXES = ["IzziWebhookAlarm-v", "WebhookAlarm-TV-v"] as const;
+const VERSIONED_APK_PREFIXES = [
+  "IzziWebhookAlarm-v",
+  "WebhookAlarm-TV-v",
+] as const;
 
 function isVersionedApk(name: string): boolean {
   return (
@@ -117,6 +121,77 @@ async function resolveApkPath(
 function apkFilename(filePath: string): string {
   const base = path.basename(filePath).replace(/["\r\n]/g, "");
   return base.length > 0 ? base : "IzziWebhookAlarm.apk";
+}
+
+const webhookBodyLimit = bodyLimit({
+  maxSize: MAX_BODY_BYTES,
+  onError: (c) => c.json({ error: "Payload too large" }, 413),
+});
+
+type DeviceDelivery =
+  | { status: "skipped" }
+  | { status: "sent"; message: OutgoingMessage }
+  | { status: "queued"; message: OutgoingMessage };
+
+function deliverToDevice(
+  registry: DeviceRegistry,
+  deviceId: string,
+  body: Record<string, unknown>,
+): DeviceDelivery {
+  const outcome = transformWebhook(body, {
+    lastAlertId: registry.lastAlertId(deviceId),
+  });
+
+  if (!outcome.message) return { status: "skipped" };
+
+  const message = outcome.message;
+  const socket = registry.get(deviceId);
+  if (socket) {
+    try {
+      socket.send(JSON.stringify(message));
+      if (message.type === "alert")
+        registry.rememberAlert(deviceId, message.id);
+      console.log(
+        `WebhookAlarm webhook ${deviceId} ${message.type} ${message.id}`,
+      );
+      return { status: "sent", message };
+    } catch (error) {
+      console.error("WebhookAlarm send failed", error);
+      registry.disconnect(deviceId, socket);
+    }
+  }
+
+  registry.enqueue(deviceId, message);
+  console.log(
+    `WebhookAlarm webhook ${deviceId} queued ${message.type} ${message.id}`,
+  );
+  return { status: "queued", message };
+}
+
+function jsonForDelivery(delivery: DeviceDelivery): Record<string, unknown> {
+  if (delivery.status === "skipped") return { delivered: false };
+  if (delivery.status === "sent")
+    return delivery.message as Record<string, unknown>;
+  return {
+    delivered: false,
+    queued: true,
+    type: delivery.message.type,
+    id: delivery.message.id,
+  };
+}
+
+async function parseWebhookJson(c: {
+  req: { json(): Promise<unknown> };
+}): Promise<{ ok: true; body: Record<string, unknown> } | { ok: false }> {
+  let payload: unknown;
+  try {
+    payload = await c.req.json();
+  } catch {
+    return { ok: false };
+  }
+  const body = asRecord(payload);
+  if (!body) return { ok: false };
+  return { ok: true, body };
 }
 
 type AppOptions = {
@@ -177,11 +252,17 @@ export function createApp(
             return;
           }
           const type = typeof body.type === "string" ? body.type : "";
+          if (type === "ping") {
+            ws.send(JSON.stringify({ type: "pong" }));
+            return;
+          }
           if (type === "register") {
             const nextId =
               typeof body.deviceId === "string" ? body.deviceId.trim() : "";
-            if (!nextId) {
-              console.log("WebhookAlarm ignored register without deviceId");
+            if (!isDeviceKey(nextId)) {
+              console.log(
+                "WebhookAlarm ignored register with invalid deviceId",
+              );
               return;
             }
             if (deviceId && deviceId !== nextId)
@@ -190,6 +271,7 @@ export function createApp(
             registry.connect(nextId, ws);
             ws.send(JSON.stringify({ type: "connected", deviceId: nextId }));
             console.log(`WebhookAlarm connected ${nextId}`);
+            flushQueue(registry, nextId, ws);
             return;
           }
           if (type === "acknowledge") {
@@ -216,59 +298,94 @@ export function createApp(
     }),
   );
 
-  app.post(
-    "/webhook/:deviceId",
-    bodyLimit({
-      maxSize: MAX_BODY_BYTES,
-      onError: (c) => c.json({ error: "Payload too large" }, 413),
-    }),
-    async (c) => {
-      if (!isAuthorized(c.req.header("Authorization"), token())) {
-        return c.json({ error: "Unauthorized" }, 401);
+  app.post("/webhook/all", webhookBodyLimit, async (c) => {
+    if (!isAuthorized(c.req.header("Authorization"), token())) {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
+
+    const parsed = await parseWebhookJson(c);
+    if (!parsed.ok) return c.json({ error: "Invalid JSON" }, 400);
+
+    const deviceIds = registry.targetDeviceIds();
+    let delivered = 0;
+    let queued = 0;
+    let skipped = 0;
+    const results: Array<Record<string, unknown>> = [];
+
+    for (const deviceId of deviceIds) {
+      const delivery = deliverToDevice(registry, deviceId, parsed.body);
+      if (delivery.status === "skipped") {
+        skipped += 1;
+        results.push({ deviceId, delivered: false });
+        continue;
       }
+      if (delivery.status === "sent") delivered += 1;
+      else queued += 1;
+      results.push({ deviceId, ...jsonForDelivery(delivery) });
+    }
 
-      const deviceId = c.req.param("deviceId").trim();
-      if (!deviceId) return c.json({ error: "Device id is required" }, 400);
+    console.log(
+      `WebhookAlarm webhook all targets=${deviceIds.length} delivered=${delivered} queued=${queued} skipped=${skipped}`,
+    );
 
-      let payload: unknown;
-      try {
-        payload = await c.req.json();
-      } catch {
-        return c.json({ error: "Invalid JSON" }, 400);
-      }
-      const body = asRecord(payload);
-      if (!body) return c.json({ error: "Invalid JSON" }, 400);
+    return c.json(
+      {
+        broadcast: true,
+        targets: deviceIds.length,
+        delivered,
+        queued,
+        skipped,
+        results,
+      },
+      202,
+    );
+  });
 
-      const outcome = transformWebhook(body, {
-        lastAlertId: registry.lastAlertId(deviceId),
-      });
+  app.post("/webhook/:deviceId", webhookBodyLimit, async (c) => {
+    if (!isAuthorized(c.req.header("Authorization"), token())) {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
 
-      if (!outcome.message) {
-        console.log(`WebhookAlarm webhook ${deviceId} resolve skipped`);
-        return c.json({ delivered: false }, 202);
-      }
+    const deviceId = c.req.param("deviceId").trim();
+    if (isReservedWebhookDeviceId(deviceId)) {
+      return c.json({ error: "Invalid device id" }, 400);
+    }
+    if (!isDeviceKey(deviceId))
+      return c.json({ error: "Invalid device id" }, 400);
 
-      const socket = registry.get(deviceId);
-      if (!socket) return c.json({ error: "Device not connected" }, 404);
+    const parsed = await parseWebhookJson(c);
+    if (!parsed.ok) return c.json({ error: "Invalid JSON" }, 400);
 
-      const message = outcome.message;
-      try {
-        socket.send(JSON.stringify(message));
-      } catch (error) {
-        console.error("WebhookAlarm send failed", error);
-        return c.json({ error: "Delivery failed" }, 500);
-      }
+    const delivery = deliverToDevice(registry, deviceId, parsed.body);
+    if (delivery.status === "skipped") {
+      console.log(`WebhookAlarm webhook ${deviceId} resolve skipped`);
+      return c.json({ delivered: false }, 202);
+    }
 
-      if (message.type === "alert")
-        registry.rememberAlert(deviceId, message.id);
-      console.log(
-        `WebhookAlarm webhook ${deviceId} ${message.type} ${message.id}`,
-      );
-      return c.json(message, 202);
-    },
-  );
+    return c.json(jsonForDelivery(delivery), 202);
+  });
 
   return { app, registry, injectWebSocket };
+}
+
+function flushQueue(
+  registry: DeviceRegistry,
+  deviceId: string,
+  ws: { send(data: string): void },
+): void {
+  const pending = registry.drain(deviceId);
+  for (let index = 0; index < pending.length; index++) {
+    const message: OutgoingMessage = pending[index];
+    try {
+      ws.send(JSON.stringify(message));
+    } catch (error) {
+      console.error("WebhookAlarm flush failed", error);
+      for (const remaining of pending.slice(index)) {
+        registry.enqueue(deviceId, remaining);
+      }
+      return;
+    }
+  }
 }
 
 function isDirectRun(): boolean {

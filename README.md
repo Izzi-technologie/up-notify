@@ -50,9 +50,10 @@ Aucun compte Google Play n'est nécessaire.
 
 ## Premier lancement
 
-1. Renseignez l'URL du serveur (`https://alarm.example.com`), le Device ID (`device-001`, `device-002`, …) et, si le serveur a un `ALARM_TOKEN`, le même secret dans `Token (optional)`.
-2. `CONNECT` ouvre `wss://…/ws` et envoie `register`.
-3. Quand l'état passe à `CONNECTED`, `CONTINUE` ouvre l'écran principal.
+1. Renseignez l'URL du serveur (`https://alarm.example.com`) et, si le serveur a un `ALARM_TOKEN`, le même secret dans `Token (optional)`.
+2. Le Device ID est une clé de 5 caractères (`K7M2P`), générée une fois pour l'appareil. Elle n'est pas saisie. Un ancien `device-001` est remplacé au prochain lancement : mettez à jour l'URL dans Checkmate.
+3. `CONNECT` ouvre `wss://…/ws` et envoie `register`. L'état passe à `CONNECTED` seulement après la réponse `connected` du serveur.
+4. `CONTINUE` ouvre l'écran principal.
 
 Les réglages sont stockés dans DataStore Preferences. Il n'y a pas de base SQLite.
 
@@ -71,6 +72,8 @@ Pendant une alarme, l'application monte les flux alarme et média à ce niveau, 
 | critical | `res/raw/critical.mp3` | 100 %  | boucle  | plein écran | oui          |
 
 `ACKNOWLEDGE` coupe le son critical et envoie `{ "type": "acknowledge", "alertId", "deviceId" }`. L'alerte reste affichée tant qu'un `alert_resolved` du même id n'arrive pas.
+
+Après `connected`, le client envoie `{ "type": "ping" }` toutes les 15 secondes. Le serveur répond `{ "type": "pong" }`. Sans `pong` en 25 secondes, le client se reconnecte. Une coupure d'une session déjà ouverte est retentée en 300 ms. Les échecs d'ouverture restent en backoff (5 s, 10 s, 30 s, 60 s).
 
 Les boutons `TEST INFO`, `TEST WARNING` et `TEST CRITICAL` passent par le même `AlertEngine` que les messages WebSocket. Ils fonctionnent hors ligne.
 
@@ -118,7 +121,9 @@ Le process écoute `PORT` (défaut `3000`).
 PORT=3000 ALARM_TOKEN=secret npm run dev
 ```
 
-`GET /health` répond `{ "status": "ok" }`. Le client ouvre `GET /ws`, envoie `{ "type": "register", "deviceId" }` et reçoit `{ "type": "connected", "deviceId" }`. Checkmate appelle `POST /webhook/<deviceId>`.
+`GET /health` répond `{ "status": "ok" }`. Le client ouvre `GET /ws`, envoie `{ "type": "register", "deviceId" }` avec une clé de 5 caractères et reçoit `{ "type": "connected", "deviceId" }`. Checkmate appelle `POST /webhook/<deviceId>` ou `POST /webhook/all` pour notifier tous les appareils connectés (et ceux déjà connus du serveur).
+
+Si l'appareil n'est pas connecté, ou si l'envoi échoue, l'alerte est gardée en mémoire (32 messages, 10 minutes) et répondue en `202` `{ "delivered": false, "queued": true, "type", "id" }`. Elle part au prochain `register`, après `connected`. Un redémarrage du process vide cette file.
 
 `GET /download` renvoie l'APK (`application/vnd.android.package-archive`). Cette route est publique, même si `ALARM_TOKEN` est défini. Le fichier est cherché dans cet ordre :
 

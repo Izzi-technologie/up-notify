@@ -3,4 +3,22 @@
     <string name="app_name">Izzi Webhook Alarm</string>
     <string name="notification_channel_name">Alarm terminal</string>
     <string name="notification_channel_description">Keeps Izzi Webhook Alarm connected to your server.</string>
+    <string name="notification_alert_channel_name">Alerts</string>
+    <string name="notification_alert_channel_description">Incoming webhook alarms when the app is in the background.</string>
+    <string name="notification_service_running">Connected to alarm server</string>
+    <string name="notification_title_info">Info alert</string>
+    <string name="notification_title_warning">Warning alert</string>
+    <string name="notification_title_critical">Critical alert</string>
+    <string name="notification_title_acknowledged">Alert acknowledged</string>
+    <string name="notification_title_resolved">Alert resolved</string>
+    <string name="notification_action_ack">Acknowledge</string>
+    <string name="notification_action_dismiss">Dismiss</string>
+    <string name="phone_permissions_title">Background alerts</string>
+    <string name="phone_permissions_body">Allow notifications and at least one of overlay or full-screen alerts so alarms stay visible when another app is open.</string>
+    <string name="phone_permissions_notifications">Notifications</string>
+    <string name="phone_permissions_overlay">Display over other apps</string>
+    <string name="phone_permissions_full_screen">Full-screen alerts</string>
+    <string name="phone_permissions_battery">Unrestricted battery</string>
+    <string name="phone_permissions_grant">Open settings</string>
+    <string name="phone_permissions_ready">Background alerts are configured.</string>
 </resources>

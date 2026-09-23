@@ -17,6 +17,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.wayscompany.webhookalarm.model.AlertEvent
 import com.wayscompany.webhookalarm.model.Severity
+import com.wayscompany.webhookalarm.ui.components.CopyableUrlRow
+import com.wayscompany.webhookalarm.ui.components.PhoneAlertPermissionsCard
 import com.wayscompany.webhookalarm.ui.components.LabeledValue
 import com.wayscompany.webhookalarm.ui.components.ScreenFooter
 import com.wayscompany.webhookalarm.ui.components.ScreenHeader
@@ -26,6 +28,7 @@ import com.wayscompany.webhookalarm.ui.components.StatusBadge
 import com.wayscompany.webhookalarm.ui.components.TvPanel
 import com.wayscompany.webhookalarm.ui.theme.AlarmColors
 import com.wayscompany.webhookalarm.ui.theme.AlarmDimens
+import com.wayscompany.webhookalarm.utils.deriveWebhookUrl
 import com.wayscompany.webhookalarm.utils.displayTime
 import com.wayscompany.webhookalarm.websocket.ConnectionState
 
@@ -37,8 +40,12 @@ fun HomeScreen(
     lastEvent: AlertEvent?,
     onTest: (Severity) -> Unit,
     onSettings: () -> Unit,
+    onRequestNotifications: () -> Unit,
 ) {
     ScreenShell {
+        item {
+            PhoneAlertPermissionsCard(onRequestNotifications = onRequestNotifications)
+        }
         item {
             HomeOverview(
                 connection = connection,
@@ -46,6 +53,9 @@ fun HomeScreen(
                 serverUrl = serverUrl,
                 lastEvent = lastEvent,
             )
+        }
+        item {
+            WebhookSection(serverUrl = serverUrl, deviceId = deviceId)
         }
         item {
             Column(
@@ -112,6 +122,24 @@ private fun HomeOverview(
                 label = "Last event",
                 value = lastEvent?.message?.ifBlank { lastEvent.title } ?: "None",
                 caption = displayTime(lastEvent?.timestamp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun WebhookSection(serverUrl: String, deviceId: String) {
+    val webhookUrl = deriveWebhookUrl(serverUrl, deviceId)
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(AlarmDimens.itemGap),
+    ) {
+        SectionTitle(text = "WEBHOOK")
+        TvPanel {
+            CopyableUrlRow(
+                label = "URL for monitoring services",
+                url = webhookUrl,
+                caption = "POST JSON alerts to this URL (e.g. Checkmate).",
             )
         }
     }

@@ -13,7 +13,10 @@ import com.wayscompany.webhookalarm.ui.theme.AlarmColors
 import com.wayscompany.webhookalarm.ui.theme.IzziWebhookAlarmTheme
 
 @Composable
-fun AlarmApp(viewModel: MainViewModel) {
+fun AlarmApp(
+    viewModel: MainViewModel,
+    onRequestNotifications: () -> Unit,
+) {
     val loaded by viewModel.loaded.collectAsStateWithLifecycle()
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val connection by viewModel.connection.collectAsStateWithLifecycle()
@@ -52,10 +55,11 @@ fun AlarmApp(viewModel: MainViewModel) {
                 AppScreen.Home -> HomeScreen(
                     connection = connection,
                     deviceId = settings.deviceId,
-                    serverUrl = settings.webSocketUrl,
+                    serverUrl = settings.serverUrl,
                     lastEvent = lastEvent,
                     onTest = viewModel::test,
                     onSettings = viewModel::openSettings,
+                    onRequestNotifications = onRequestNotifications,
                 )
             }
             AlertOverlay(

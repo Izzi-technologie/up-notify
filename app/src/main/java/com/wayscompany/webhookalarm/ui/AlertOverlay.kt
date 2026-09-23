@@ -31,10 +31,12 @@ import com.wayscompany.webhookalarm.alarm.presentationFor
 import com.wayscompany.webhookalarm.model.AlertEvent
 import com.wayscompany.webhookalarm.ui.theme.AlarmColors
 import com.wayscompany.webhookalarm.ui.theme.AlarmDimens
+import com.wayscompany.webhookalarm.ui.theme.AlarmSafeInsets
 import com.wayscompany.webhookalarm.ui.theme.AlarmTypography
 import com.wayscompany.webhookalarm.utils.displayTime
 
 private const val ScrimAlpha = 0.78f
+private const val AlertBorderAlpha = 0.38f
 
 @Composable
 fun AlertOverlay(
@@ -242,7 +244,14 @@ private fun Scrim(content: @Composable () -> Unit) {
             .background(AlarmColors.Background.copy(alpha = ScrimAlpha)),
         contentAlignment = Alignment.Center,
     ) {
-        content()
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(AlarmSafeInsets.overlayContentPadding()),
+            contentAlignment = Alignment.Center,
+        ) {
+            content()
+        }
     }
 }
 
@@ -256,11 +265,10 @@ private fun TopBanner(
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
         Column(
             modifier = Modifier
-                .padding(top = AlarmDimens.screenPaddingV)
+                .padding(AlarmSafeInsets.topBannerPadding())
                 .widthIn(max = AlarmDimens.contentMaxWidth)
                 .fillMaxWidth()
-                .padding(horizontal = AlarmDimens.screenPaddingH)
-                .border(width = 1.dp, color = borderColor, shape = shape)
+                .border(width = 1.dp, color = borderColor.copy(alpha = AlertBorderAlpha), shape = shape)
                 .background(background, shape)
                 .padding(AlarmDimens.cardPadding),
             verticalArrangement = Arrangement.spacedBy(AlarmDimens.itemGap),
@@ -282,7 +290,7 @@ private fun AlertCard(
             .fillMaxWidth(0.72f)
             .focusGroup()
             .focusProperties { onExit = { cancelFocusChange() } }
-            .border(width = 1.dp, color = borderColor, shape = shape)
+            .border(width = 1.dp, color = borderColor.copy(alpha = AlertBorderAlpha), shape = shape)
             .background(background, shape)
             .padding(AlarmDimens.cardPadding),
         horizontalAlignment = Alignment.CenterHorizontally,

@@ -4,8 +4,8 @@ API minimale à déployer plus tard sur un VPS. Pas de base de données, pas de 
 
 ```
 deviceId → WebSocket
-tv-001   → socket A
-tv-002   → socket B
+device-001   → socket A
+device-002   → socket B
 ```
 
 Un token pourra être ajouté plus tard. Le MVP n'exige aucune authentification. Si la TV envoie `Authorization: Bearer <token>`, le backend pourra le vérifier sans changer le reste du protocole.
@@ -37,13 +37,13 @@ La TV ouvre `wss://alarm.example.com/ws`.
 Dès l'ouverture, la TV envoie :
 
 ```json
-{ "type": "register", "deviceId": "tv-001" }
+{ "type": "register", "deviceId": "device-001" }
 ```
 
-Le serveur associe cette socket à `tv-001` et répond :
+Le serveur associe cette socket à `device-001` et répond :
 
 ```json
-{ "type": "connected", "deviceId": "tv-001" }
+{ "type": "connected", "deviceId": "device-001" }
 ```
 
 Si le même `deviceId` se reconnecte, l'ancienne socket est remplacée.
@@ -51,7 +51,7 @@ Si le même `deviceId` se reconnecte, l'ancienne socket est remplacée.
 La TV peut ensuite envoyer un acquittement :
 
 ```json
-{ "type": "acknowledge", "alertId": "evt_123", "deviceId": "tv-001" }
+{ "type": "acknowledge", "alertId": "evt_123", "deviceId": "device-001" }
 ```
 
 `acknowledge` ne veut pas dire que l'incident est résolu. Le serveur peut le journaliser ou l'ignorer pour le MVP. Seul `alert_resolved` retire l'alerte de la TV.
@@ -61,7 +61,7 @@ La TV peut ensuite envoyer un acquittement :
 Exemple :
 
 ```
-POST https://alarm.example.com/webhook/tv-001
+POST https://alarm.example.com/webhook/device-001
 Content-Type: application/json
 ```
 
@@ -75,7 +75,7 @@ Payload Checkmate, ou équivalent :
 }
 ```
 
-Le backend cherche la socket de `tv-001`. Si elle est absente, répondre `404`. Sinon, transformer le webhook et l'envoyer sur la socket :
+Le backend cherche la socket de `device-001`. Si elle est absente, répondre `404`. Sinon, transformer le webhook et l'envoyer sur la socket :
 
 ```json
 {

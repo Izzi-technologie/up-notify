@@ -71,7 +71,7 @@ test("download serves the apk and stays public", async (t) => {
 
 test("returns 404 when the TV is offline", async () => {
   const { app } = createApp();
-  const response = await app.request("/webhook/tv-001", {
+  const response = await app.request("/webhook/device-001", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
@@ -86,14 +86,14 @@ test("returns 404 when the TV is offline", async () => {
 
 test("rejects invalid JSON and an empty device id", async () => {
   const { app } = createApp();
-  const invalid = await app.request("/webhook/tv-001", {
+  const invalid = await app.request("/webhook/device-001", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: "not-json",
   });
   assert.equal(invalid.status, 400);
 
-  const arrayBody = await app.request("/webhook/tv-001", {
+  const arrayBody = await app.request("/webhook/device-001", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: "[]",
@@ -111,9 +111,9 @@ test("rejects invalid JSON and an empty device id", async () => {
 test("delivers an alert and a later resolution to the connected TV", async () => {
   const { app, registry } = createApp();
   const socket = fakeSocket();
-  registry.connect("tv-001", socket);
+  registry.connect("device-001", socket);
 
-  const alert = await app.request("/webhook/tv-001", {
+  const alert = await app.request("/webhook/device-001", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
@@ -134,7 +134,7 @@ test("delivers an alert and a later resolution to the connected TV", async () =>
   assert.match(sentAlert.id, /^evt_/);
   assert.equal(socket.sent[0], JSON.stringify(sentAlert));
 
-  const resolved = await app.request("/webhook/tv-001", {
+  const resolved = await app.request("/webhook/device-001", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ status: "up" }),
@@ -148,9 +148,9 @@ test("delivers an alert and a later resolution to the connected TV", async () =>
 test("accepts a resolution with no known id and sends nothing", async () => {
   const { app, registry } = createApp();
   const socket = fakeSocket();
-  registry.connect("tv-001", socket);
+  registry.connect("device-001", socket);
 
-  const response = await app.request("/webhook/tv-001", {
+  const response = await app.request("/webhook/device-001", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ type: "recovery" }),
@@ -172,14 +172,14 @@ test("requires the bearer token only when ALARM_TOKEN is set", async (t) => {
 
   process.env.ALARM_TOKEN = "secret";
   const { app } = createApp();
-  const denied = await app.request("/webhook/tv-001", {
+  const denied = await app.request("/webhook/device-001", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: "{}",
   });
   assert.equal(denied.status, 401);
 
-  const wrong = await app.request("/webhook/tv-001", {
+  const wrong = await app.request("/webhook/device-001", {
     method: "POST",
     headers: {
       "content-type": "application/json",
@@ -195,7 +195,7 @@ test("requires the bearer token only when ALARM_TOKEN is set", async (t) => {
   const health = await app.request("/health");
   assert.equal(health.status, 200);
 
-  const allowed = await app.request("/webhook/tv-001", {
+  const allowed = await app.request("/webhook/device-001", {
     method: "POST",
     headers: {
       "content-type": "application/json",
@@ -227,7 +227,7 @@ test(
           reject(new Error("websocket error"));
         });
         ws.addEventListener("open", () => {
-          ws.send(JSON.stringify({ type: "register", deviceId: "tv-001" }));
+          ws.send(JSON.stringify({ type: "register", deviceId: "device-001" }));
         });
         ws.addEventListener("message", (event) => {
           const message = JSON.parse(String(event.data)) as { type?: string };
@@ -257,15 +257,18 @@ test(
         });
       });
 
-      const response = await fetch(`http://127.0.0.1:${port}/webhook/tv-001`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          severity: "critical",
-          text: "Production API is down",
-          monitor: { name: "Production API" },
-        }),
-      });
+      const response = await fetch(
+        `http://127.0.0.1:${port}/webhook/device-001`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            severity: "critical",
+            text: "Production API is down",
+            monitor: { name: "Production API" },
+          }),
+        },
+      );
       assert.equal(response.status, 202);
       const body = (await response.json()) as { type: string };
       assert.equal(body.type, "alert");

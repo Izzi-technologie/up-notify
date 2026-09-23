@@ -4,6 +4,7 @@ import com.wayscompany.webhookalarm.settings.AlertPolicies
 import com.wayscompany.webhookalarm.settings.AppSettings
 import com.wayscompany.webhookalarm.settings.SettingsCodec
 import com.wayscompany.webhookalarm.utils.deriveWebSocketUrl
+import com.wayscompany.webhookalarm.utils.deriveWebhookUrl
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -12,7 +13,7 @@ class SettingsCodecTest {
     fun roundTripKeepsPolicies() {
         val settings = AppSettings(
             serverUrl = "https://alarm.example.com",
-            deviceId = "tv-001",
+            deviceId = "device-001",
             webSocketUrl = "wss://alarm.example.com/ws",
             authToken = "later",
             setupCompleted = true,
@@ -46,6 +47,22 @@ class SettingsCodecTest {
         assertEquals(40, decoded.policies.info.volumePercent)
         assertEquals(1, decoded.policies.warning.repeatCount)
         assertEquals(true, decoded.policies.critical.persistent)
+    }
+
+    @Test
+    fun derivesWebhookUrl() {
+        assertEquals(
+            "https://alarm.example.com/webhook/device-001",
+            deriveWebhookUrl("https://alarm.example.com", "device-001"),
+        )
+        assertEquals(
+            "https://alarm.example.com/webhook/device-001",
+            deriveWebhookUrl("wss://alarm.example.com/ws", "device-001"),
+        )
+        assertEquals(
+            "http://10.0.0.8:8080/webhook/device-002",
+            deriveWebhookUrl("http://10.0.0.8:8080", "device-002"),
+        )
     }
 
     @Test

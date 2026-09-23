@@ -63,8 +63,8 @@ class AlertParserTest {
     fun parsesResolvedAndConnected() {
         val resolved = AlertParser.parse("""{"type":"alert_resolved","id":"evt_123"}""")
         assertEquals(WsIncoming.Resolved("evt_123"), resolved)
-        val connected = AlertParser.parse("""{"type":"connected","deviceId":"tv-001"}""")
-        assertEquals(WsIncoming.Connected("tv-001"), connected)
+        val connected = AlertParser.parse("""{"type":"connected","deviceId":"device-001"}""")
+        assertEquals(WsIncoming.Connected("device-001"), connected)
     }
 
     @Test

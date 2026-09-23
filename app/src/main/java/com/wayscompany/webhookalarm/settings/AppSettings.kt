@@ -56,7 +56,7 @@ data class AlertPolicies(
 
 data class AppSettings(
     val serverUrl: String = "https://alarm.example.com",
-    val deviceId: String = "tv-001",
+    val deviceId: String = "device-001",
     val webSocketUrl: String = "wss://alarm.example.com/ws",
     val authToken: String = "",
     val setupCompleted: Boolean = false,

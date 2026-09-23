@@ -12,10 +12,17 @@ import com.wayscompany.webhookalarm.utils.isTelevisionDevice
 @Composable
 fun IzziWebhookAlarmTheme(content: @Composable () -> Unit) {
     val context = LocalContext.current
-    val dimens = remember(context) {
-        if (context.isTelevisionDevice()) AlarmDimensValues.Tv else AlarmDimensValues.Phone
+    val isTv = remember(context) { context.isTelevisionDevice() }
+    val dimens = remember(isTv) {
+        if (isTv) AlarmDimensValues.Tv else AlarmDimensValues.Phone
     }
-    CompositionLocalProvider(LocalAlarmDimens provides dimens) {
+    val typography = remember(isTv) {
+        if (isTv) AlarmTypographyValues.Tv else AlarmTypographyValues.Phone
+    }
+    CompositionLocalProvider(
+        LocalAlarmDimens provides dimens,
+        LocalAlarmTypography provides typography,
+    ) {
         MaterialTheme(
             colorScheme = darkColorScheme(
                 primary = AlarmColors.Text,
@@ -27,15 +34,15 @@ fun IzziWebhookAlarmTheme(content: @Composable () -> Unit) {
                 outline = AlarmColors.Focus,
             ),
             typography = Typography(
-                displaySmall = AlarmTypography.screenTitle,
-                headlineSmall = AlarmTypography.sectionTitle,
-                titleMedium = AlarmTypography.status,
-                bodyLarge = AlarmTypography.bodyLarge,
-                bodyMedium = AlarmTypography.body,
-                bodySmall = AlarmTypography.caption,
-                labelLarge = AlarmTypography.label,
-                labelMedium = AlarmTypography.caption,
-                labelSmall = AlarmTypography.caption,
+                displaySmall = typography.screenTitle,
+                headlineSmall = typography.sectionTitle,
+                titleMedium = typography.status,
+                bodyLarge = typography.bodyLarge,
+                bodyMedium = typography.body,
+                bodySmall = typography.caption,
+                labelLarge = typography.label,
+                labelMedium = typography.caption,
+                labelSmall = typography.caption,
             ),
             content = content,
         )

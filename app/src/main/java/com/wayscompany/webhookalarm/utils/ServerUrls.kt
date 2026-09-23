@@ -12,6 +12,28 @@ fun deriveWebSocketUrl(serverUrl: String): String {
     return if (withScheme.endsWith("/ws")) withScheme else "$withScheme/ws"
 }
 
+fun deriveWebhookUrl(serverUrl: String, deviceId: String): String {
+    val id = deviceId.trim()
+    val base = normalizeHttpBaseUrl(serverUrl)
+    if (id.isEmpty() || base.isEmpty()) return ""
+    return "$base/webhook/$id"
+}
+
+fun normalizeHttpBaseUrl(serverUrl: String): String {
+    val trimmed = serverUrl.trim().trimEnd('/')
+    if (trimmed.isEmpty()) return ""
+    val withoutWsPath = trimmed.substringBefore("/ws").trimEnd('/')
+    return when {
+        withoutWsPath.startsWith("wss://") ->
+            "https://${withoutWsPath.removePrefix("wss://")}"
+        withoutWsPath.startsWith("ws://") ->
+            "http://${withoutWsPath.removePrefix("ws://")}"
+        withoutWsPath.startsWith("https://") || withoutWsPath.startsWith("http://") ->
+            withoutWsPath
+        else -> "https://$withoutWsPath"
+    }
+}
+
 fun normalizeWebSocketUrl(raw: String): String? {
     val value = raw.trim()
     if (value.isEmpty()) return null

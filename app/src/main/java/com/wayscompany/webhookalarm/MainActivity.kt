@@ -8,6 +8,8 @@ import android.view.WindowManager
 import com.wayscompany.webhookalarm.utils.isTelevisionDevice
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.core.view.WindowCompat
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import com.wayscompany.webhookalarm.service.AlarmForegroundService
@@ -25,6 +27,11 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
+        WindowCompat.getInsetsController(window, window.decorView).apply {
+            isAppearanceLightStatusBars = false
+            isAppearanceLightNavigationBars = false
+        }
         requestedOrientation = if (isTelevisionDevice()) {
             ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
         } else {
@@ -40,7 +47,14 @@ class MainActivity : ComponentActivity() {
             notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
         setContent {
-            AlarmApp(viewModel)
+            AlarmApp(
+                viewModel = viewModel,
+                onRequestNotifications = {
+                    if (Build.VERSION.SDK_INT >= 33) {
+                        notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    }
+                },
+            )
         }
     }
 }

@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -27,6 +26,7 @@ import androidx.compose.material3.Text
 import com.wayscompany.webhookalarm.ui.AppVersionLine
 import com.wayscompany.webhookalarm.ui.theme.AlarmColors
 import com.wayscompany.webhookalarm.ui.theme.AlarmDimens
+import com.wayscompany.webhookalarm.ui.theme.AlarmSafeInsets
 import com.wayscompany.webhookalarm.ui.theme.AlarmTypography
 import com.wayscompany.webhookalarm.websocket.ConnectionState
 
@@ -45,10 +45,7 @@ fun ScreenShell(
             modifier = Modifier
                 .widthIn(max = AlarmDimens.contentMaxWidth)
                 .fillMaxWidth(),
-            contentPadding = PaddingValues(
-                horizontal = AlarmDimens.screenPaddingH,
-                vertical = AlarmDimens.screenPaddingV,
-            ),
+            contentPadding = AlarmSafeInsets.screenContentPadding(),
             verticalArrangement = Arrangement.spacedBy(AlarmDimens.sectionGap),
             content = content,
         )
@@ -180,8 +177,8 @@ fun StatusBadge(
                 },
                 shape = shape,
             )
-            .border(width = 1.dp, color = color.copy(alpha = 0.55f), shape = shape)
-            .padding(horizontal = 16.dp, vertical = 10.dp),
+            .border(width = 1.dp, color = color.copy(alpha = 0.38f), shape = shape)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

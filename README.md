@@ -50,7 +50,7 @@ Aucun compte Google Play n'est nécessaire.
 
 ## Premier lancement
 
-1. Renseignez l'URL du serveur (`https://alarm.example.com`), le Device ID (`tv-001`, `phone-001`, …) et, si le serveur a un `ALARM_TOKEN`, le même secret dans `Token (optional)`.
+1. Renseignez l'URL du serveur (`https://alarm.example.com`), le Device ID (`device-001`, `device-002`, …) et, si le serveur a un `ALARM_TOKEN`, le même secret dans `Token (optional)`.
 2. `CONNECT` ouvre `wss://…/ws` et envoie `register`.
 3. Quand l'état passe à `CONNECTED`, `CONTINUE` ouvre l'écran principal.
 
@@ -80,9 +80,19 @@ Les fichiers de `res/raw/` sont des tonalités de remplacement. Remplacez-les en
 
 `BootReceiver` écoute `BOOT_COMPLETED` et démarre un foreground service `specialUse`. Le service tient le WebSocket et un wake lock partiel pendant qu'il tourne. Quand un son est joué, le type du service passe à `specialUse|mediaPlayback`, puis revient à `specialUse`.
 
-Une notification avec `fullScreenIntent` tente d'ouvrir l'écran au boot et lors d'une alerte critical. Certains OEM bloquent l'ouverture d'une activité depuis l'arrière-plan. Dans ce cas, le socket et le son continuent : ouvrez l'application depuis la notification ou le lanceur.
-
 Au premier démarrage, l'appareil doit être configuré une fois. Les redémarrages suivants reconnectent seuls.
+
+## Téléphone en arrière-plan
+
+Sur **téléphone**, l'alarme ne repose plus sur l'écran d'accueil au premier plan. Trois mécanismes se cumulent :
+
+1. **Notification d'alerte** (canal `Alerts`, priorité haute) : heads-up, titre, actions _Acknowledge_ / _Dismiss_ pour le critical, ouverture via tap.
+2. **`AlertActivity`** : écran d'alarme dédié (`showWhenLocked`, `turnScreenOn`), lancé en **full-screen intent** pour warning/critical quand l'app n'est pas visible, et via `startActivity` depuis le service.
+3. **Superposition système** (`SYSTEM_ALERT_WINDOW`) : si l'utilisateur autorise « Afficher par-dessus les autres apps », la même UI Compose que sur l'écran principal s'affiche par-dessus Chrome ou le launcher (warning/critical/ack/resolved ; info = notification seulement).
+
+L'écran d'accueil affiche une carte **Background alerts** : notifications, overlay, full-screen intent (Android 14+) et batterie non restreinte. Il faut au minimum **notifications** + (**overlay** ou **full-screen intent**) pour un affichage fiable hors app.
+
+Sur **Android TV**, le comportement reste centré sur `MainActivity` au premier plan ; la superposition n'est pas utilisée.
 
 ## Réseau
 

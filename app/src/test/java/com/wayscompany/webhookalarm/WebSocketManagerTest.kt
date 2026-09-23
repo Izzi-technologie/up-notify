@@ -66,8 +66,8 @@ class WebSocketManagerTest {
         advanceTimeBy(120_000)
         runCurrent()
         assertEquals(1, factory.created)
-        assertTrue(factory.sent.any { it.contains("\"type\":\"register\"") && it.contains("tv-001") })
-        assertTrue(WsProtocol.register("tv-001").contains("tv-001"))
+        assertTrue(factory.sent.any { it.contains("\"type\":\"register\"") && it.contains("device-001") })
+        assertTrue(WsProtocol.register("device-001").contains("device-001"))
     }
 
     @Test
@@ -87,7 +87,7 @@ class WebSocketManagerTest {
 
     private fun settings() = MutableStateFlow(
         AppSettings(
-            deviceId = "tv-001",
+            deviceId = "device-001",
             webSocketUrl = "wss://alarm.example.com/ws",
             setupCompleted = true,
         ),

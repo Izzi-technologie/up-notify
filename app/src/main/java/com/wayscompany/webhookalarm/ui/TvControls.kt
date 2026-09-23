@@ -284,8 +284,8 @@ private fun buttonPalette(variant: TvButtonVariant, tint: Color?): ButtonPalette
             content = AlarmColors.Text,
             focusedContainer = tint,
             focusedContent = tint.preferredContent(),
-            border = tint,
-            focusedBorder = AlarmColors.Text,
+            border = tint.copy(alpha = 0.38f),
+            focusedBorder = tint.copy(alpha = 0.85f),
         )
     }
     return when (variant) {
@@ -294,8 +294,8 @@ private fun buttonPalette(variant: TvButtonVariant, tint: Color?): ButtonPalette
             content = AlarmColors.Background,
             focusedContainer = AlarmColors.Text,
             focusedContent = AlarmColors.Background,
-            border = AlarmColors.Focus,
-            focusedBorder = AlarmColors.Text,
+            border = AlarmColors.Focus.copy(alpha = 0.45f),
+            focusedBorder = AlarmColors.Text.copy(alpha = 0.9f),
         )
         TvButtonVariant.Secondary -> ButtonPalette(
             container = Color.Transparent,
@@ -303,15 +303,15 @@ private fun buttonPalette(variant: TvButtonVariant, tint: Color?): ButtonPalette
             focusedContainer = AlarmColors.SurfaceElevated,
             focusedContent = AlarmColors.Text,
             border = AlarmColors.Border,
-            focusedBorder = AlarmColors.Focus,
+            focusedBorder = AlarmColors.Focus.copy(alpha = 0.55f),
         )
         TvButtonVariant.Danger -> ButtonPalette(
             container = AlarmColors.CriticalBackground,
             content = AlarmColors.Critical,
             focusedContainer = AlarmColors.Critical,
             focusedContent = AlarmColors.Text,
-            border = AlarmColors.Critical,
-            focusedBorder = AlarmColors.Text,
+            border = AlarmColors.Critical.copy(alpha = 0.38f),
+            focusedBorder = AlarmColors.Critical.copy(alpha = 0.85f),
         )
     }
 }

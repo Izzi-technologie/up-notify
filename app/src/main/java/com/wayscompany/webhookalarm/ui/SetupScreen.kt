@@ -11,15 +11,18 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.material3.Text
+import com.wayscompany.webhookalarm.ui.components.CopyableUrlRow
 import com.wayscompany.webhookalarm.ui.components.ScreenFooter
 import com.wayscompany.webhookalarm.ui.components.ScreenHeader
 import com.wayscompany.webhookalarm.ui.components.ScreenShell
+import com.wayscompany.webhookalarm.ui.components.SectionTitle
 import com.wayscompany.webhookalarm.ui.components.StatusBadge
 import com.wayscompany.webhookalarm.ui.components.TvPanel
 import com.wayscompany.webhookalarm.ui.theme.AlarmColors
 import com.wayscompany.webhookalarm.ui.theme.AlarmDimens
 import com.wayscompany.webhookalarm.ui.theme.AlarmTypography
 import com.wayscompany.webhookalarm.utils.deriveWebSocketUrl
+import com.wayscompany.webhookalarm.utils.deriveWebhookUrl
 import com.wayscompany.webhookalarm.websocket.ConnectionState
 
 @Composable
@@ -87,6 +90,23 @@ fun SetupScreen(
                             text = message,
                             color = AlarmColors.Text,
                             style = AlarmTypography.body,
+                        )
+                    }
+                }
+            }
+        }
+        if (connected) {
+            item {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(AlarmDimens.itemGap),
+                ) {
+                    SectionTitle(text = "WEBHOOK")
+                    TvPanel {
+                        CopyableUrlRow(
+                            label = "URL for monitoring services",
+                            url = deriveWebhookUrl(serverUrl, deviceId),
+                            caption = "POST JSON alerts to this URL (e.g. Checkmate).",
                         )
                     }
                 }

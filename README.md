@@ -23,6 +23,8 @@ APK :
 - `app/build/outputs/apk/debug/WebhookAlarm-TV-debug.apk`
 - `app/build/outputs/apk/release/WebhookAlarm-TV-release.apk`
 
+Copiez la release dans `server/apk/WebhookAlarm-TV-release.apk` et committez-la. L'image Docker sert ce fichier sur `GET /download`.
+
 L'APK release est signé avec le keystore debug pour une installation hors Play Store. Remplacez cette signature avant une diffusion plus large.
 
 ## Installer sur une Android TV
@@ -104,7 +106,7 @@ PORT=3000 ALARM_TOKEN=secret npm run dev
 2. `server/apk/WebhookAlarm-TV-release.apk`
 3. l'APK Gradle release, puis debug
 
-En local, `./gradlew assembleRelease` suffit : `/download` sert `app/build/outputs/apk/release/WebhookAlarm-TV-release.apk`.
+En Docker, l'image contient `server/apk/WebhookAlarm-TV-release.apk` à `/app/apk`.
 
 ```bash
 cd server
@@ -119,7 +121,7 @@ Depuis `server/` :
 docker compose up --build
 ```
 
-L'API est sur `http://localhost:3000`. `HOST_PORT` change le port de l'hôte. Placez l'APK dans `server/apk/WebhookAlarm-TV-release.apk` (monté sur `/apk`). `ALARM_TOKEN` reste vide tant qu'il n'est pas exporté.
+L'API est sur `http://localhost:3000`. `HOST_PORT` change le port de l'hôte. L'APK vient de l'image, depuis `server/apk/WebhookAlarm-TV-release.apk`. `ALARM_TOKEN` reste vide tant qu'il n'est pas exporté.
 
 ### Coolify
 
@@ -127,11 +129,10 @@ Build pack Docker Compose. Répertoire de base : `server`. Fichier : `docker-com
 
 Le service `api` déclare seulement `expose: 3000`. Il n'y a pas de `ports` ni de `PORT` : Coolify déduit le port interne de `expose`, puis renseigne `PORT`, le domaine et `SERVICE_URL`.
 
-Variables créées par le Compose :
+Variable créée par le Compose :
 
 - `ALARM_TOKEN` : vide, ou le même secret que dans les réglages de la TV
-- `APK_PATH` : défaut `/apk/WebhookAlarm-TV-release.apk`, dans le volume `apk`
 
-Le volume `apk` reste entre les déploiements. Copiez-y `WebhookAlarm-TV-release.apk` une fois : l'APK n'est pas dans git.
+L'APK est dans git (`server/apk/WebhookAlarm-TV-release.apk`) et copiée dans l'image au build. Un redeploy Coolify la met à jour.
 
 La TV utilise `https://` et `wss://…/ws` sur ce domaine. Checkmate envoie `POST /webhook/<deviceId>`.

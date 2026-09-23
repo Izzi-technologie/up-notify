@@ -9,9 +9,6 @@ services:
       NODE_ENV: production
       PORT: "3000"
       ALARM_TOKEN: ${ALARM_TOKEN:-}
-      APK_PATH: ${APK_PATH:-/apk/WebhookAlarm-TV-release.apk}
-    volumes:
-      - ${APK_DIR:-./apk}:/apk:ro
     restart: unless-stopped
     healthcheck:
       test:

@@ -5,6 +5,8 @@ import androidx.compose.ui.graphics.Color
 object AlarmColors {
     val Background = Color(0xFF0E1116)
     val Surface = Color(0xFF1A1F29)
+    val SurfaceElevated = Color(0xFF242B38)
+    val AccentSubtle = Color(0xFF163528)
     val Border = Color(0xFF2C3442)
     val Focus = Color(0xFF7EB6FF)
     val Text = Color(0xFFF4F7FB)

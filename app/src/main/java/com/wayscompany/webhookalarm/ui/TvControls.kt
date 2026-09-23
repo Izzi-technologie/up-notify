@@ -3,6 +3,7 @@ package com.wayscompany.webhookalarm.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.Composable
@@ -21,6 +23,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
@@ -28,25 +31,71 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.tv.material3.Border
 import androidx.tv.material3.Button
+import androidx.tv.material3.ButtonDefaults
 import androidx.tv.material3.Text
+import androidx.compose.foundation.BorderStroke
 import com.wayscompany.webhookalarm.ui.theme.AlarmColors
+import com.wayscompany.webhookalarm.ui.theme.AlarmDimens
+import com.wayscompany.webhookalarm.ui.theme.AlarmTypography
+
+enum class TvButtonVariant {
+    Primary,
+    Secondary,
+    Danger,
+}
 
 @Composable
 fun TvButton(
     text: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    variant: TvButtonVariant = TvButtonVariant.Primary,
+    tint: Color? = null,
 ) {
+    val shape = RoundedCornerShape(AlarmDimens.cornerRadius)
+    val palette = buttonPalette(variant, tint)
+    val restBorder = Border(
+        border = BorderStroke(
+            width = if (variant == TvButtonVariant.Secondary && tint == null) 1.dp else 2.dp,
+            color = palette.border,
+        ),
+        shape = shape,
+    )
+    val focusBorder = Border(
+        border = BorderStroke(width = 3.dp, color = palette.focusedBorder),
+        shape = shape,
+    )
     Button(
         onClick = onClick,
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(min = 64.dp),
+            .heightIn(min = AlarmDimens.buttonMinHeight),
+        shape = ButtonDefaults.shape(shape = shape),
+        colors = ButtonDefaults.colors(
+            containerColor = palette.container,
+            contentColor = palette.content,
+            focusedContainerColor = palette.focusedContainer,
+            focusedContentColor = palette.focusedContent,
+            pressedContainerColor = palette.focusedContainer,
+            pressedContentColor = palette.focusedContent,
+        ),
+        border = ButtonDefaults.border(
+            border = restBorder,
+            focusedBorder = focusBorder,
+            pressedBorder = focusBorder,
+        ),
     ) {
-        Text(text = text, fontSize = 22.sp)
+        Text(
+            text = text,
+            modifier = Modifier.fillMaxWidth(),
+            style = AlarmTypography.body,
+            textAlign = TextAlign.Center,
+        )
     }
 }
 
@@ -58,23 +107,32 @@ fun TvTextField(
     modifier: Modifier = Modifier,
 ) {
     var focused by remember { mutableStateOf(false) }
-    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
-        Text(text = label, color = AlarmColors.Muted, fontSize = 18.sp)
+    val shape = RoundedCornerShape(AlarmDimens.cornerRadius)
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            text = label,
+            color = AlarmColors.Muted,
+            style = AlarmTypography.caption,
+        )
         BasicTextField(
             value = value,
             onValueChange = onValueChange,
             singleLine = true,
-            textStyle = TextStyle(color = AlarmColors.Text, fontSize = 28.sp),
+            textStyle = AlarmTypography.bodyLarge.merge(TextStyle(color = AlarmColors.Text)),
             cursorBrush = SolidColor(AlarmColors.Focus),
             modifier = Modifier
                 .fillMaxWidth()
+                .heightIn(min = AlarmDimens.buttonMinHeight)
                 .onFocusChanged { focused = it.isFocused }
                 .border(
                     width = if (focused) 3.dp else 1.dp,
                     color = if (focused) AlarmColors.Focus else AlarmColors.Border,
-                    shape = RoundedCornerShape(12.dp),
+                    shape = shape,
                 )
-                .background(AlarmColors.Surface, RoundedCornerShape(12.dp))
+                .background(AlarmColors.SurfaceElevated, shape)
                 .padding(horizontal = 20.dp, vertical = 16.dp),
         )
     }
@@ -88,6 +146,7 @@ fun TvVolumeBar(
     modifier: Modifier = Modifier,
 ) {
     var focused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(AlarmDimens.cornerRadius)
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -110,13 +169,30 @@ fun TvVolumeBar(
             .border(
                 width = if (focused) 3.dp else 1.dp,
                 color = if (focused) AlarmColors.Focus else AlarmColors.Border,
-                shape = RoundedCornerShape(12.dp),
+                shape = shape,
             )
-            .background(AlarmColors.Surface, RoundedCornerShape(12.dp))
+            .background(AlarmColors.SurfaceElevated, shape)
             .padding(horizontal = 20.dp, vertical = 16.dp),
-        verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Text(text = "$label  $value%", color = AlarmColors.Text, fontSize = 22.sp)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = label,
+                modifier = Modifier.weight(1f),
+                color = AlarmColors.Text,
+                style = AlarmTypography.body,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = "$value%",
+                color = AlarmColors.Text,
+                style = AlarmTypography.body,
+            )
+        }
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -140,9 +216,20 @@ fun TvChoice(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
-        Text(text = label, color = AlarmColors.Muted, fontSize = 18.sp)
-        TvButton(text = value, onClick = onClick)
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            text = label,
+            color = AlarmColors.Muted,
+            style = AlarmTypography.caption,
+        )
+        TvButton(
+            text = value,
+            onClick = onClick,
+            variant = TvButtonVariant.Secondary,
+        )
     }
 }
 
@@ -156,14 +243,91 @@ fun InlineAdjust(
     Row(
         modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(AlarmDimens.itemGap),
     ) {
-        Box(Modifier.weight(1f)) {
-            TvButton(text = "−", onClick = onPrevious)
+        Box(modifier = Modifier.weight(1f)) {
+            TvButton(
+                text = "−",
+                onClick = onPrevious,
+                variant = TvButtonVariant.Secondary,
+            )
         }
-        Text(text = label, color = AlarmColors.Text, fontSize = 22.sp)
-        Box(Modifier.weight(1f)) {
-            TvButton(text = "+", onClick = onNext)
+        Text(
+            text = label,
+            modifier = Modifier.widthIn(min = InlineLabelMinWidth),
+            color = AlarmColors.Text,
+            style = AlarmTypography.body,
+            textAlign = TextAlign.Center,
+        )
+        Box(modifier = Modifier.weight(1f)) {
+            TvButton(
+                text = "+",
+                onClick = onNext,
+                variant = TvButtonVariant.Secondary,
+            )
         }
     }
+}
+
+private val InlineLabelMinWidth = 220.dp
+
+private data class ButtonPalette(
+    val container: Color,
+    val content: Color,
+    val focusedContainer: Color,
+    val focusedContent: Color,
+    val border: Color,
+    val focusedBorder: Color,
+)
+
+private fun buttonPalette(variant: TvButtonVariant, tint: Color?): ButtonPalette {
+    if (tint != null) {
+        return ButtonPalette(
+            container = tintedSurface(tint),
+            content = AlarmColors.Text,
+            focusedContainer = tint,
+            focusedContent = tint.preferredContent(),
+            border = tint,
+            focusedBorder = AlarmColors.Text,
+        )
+    }
+    return when (variant) {
+        TvButtonVariant.Primary -> ButtonPalette(
+            container = AlarmColors.Focus,
+            content = AlarmColors.Background,
+            focusedContainer = AlarmColors.Text,
+            focusedContent = AlarmColors.Background,
+            border = AlarmColors.Focus,
+            focusedBorder = AlarmColors.Text,
+        )
+        TvButtonVariant.Secondary -> ButtonPalette(
+            container = Color.Transparent,
+            content = AlarmColors.Text,
+            focusedContainer = AlarmColors.SurfaceElevated,
+            focusedContent = AlarmColors.Text,
+            border = AlarmColors.Border,
+            focusedBorder = AlarmColors.Focus,
+        )
+        TvButtonVariant.Danger -> ButtonPalette(
+            container = AlarmColors.CriticalBackground,
+            content = AlarmColors.Critical,
+            focusedContainer = AlarmColors.Critical,
+            focusedContent = AlarmColors.Text,
+            border = AlarmColors.Critical,
+            focusedBorder = AlarmColors.Text,
+        )
+    }
+}
+
+private fun tintedSurface(tint: Color): Color = when (tint) {
+    AlarmColors.Focus -> AlarmColors.InfoBackground
+    AlarmColors.Warning -> AlarmColors.WarningBackground
+    AlarmColors.Critical -> AlarmColors.CriticalBackground
+    AlarmColors.Connected -> AlarmColors.AccentSubtle
+    else -> tint.copy(alpha = 0.18f)
+}
+
+private fun Color.preferredContent(): Color {
+    val luminance = (0.2126f * red) + (0.7152f * green) + (0.0722f * blue)
+    return if (luminance >= 0.62f) AlarmColors.Background else AlarmColors.Text
 }

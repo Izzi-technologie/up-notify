@@ -21,9 +21,11 @@ Le JDK d'Android Studio et un SDK `compileSdk 37` sont requis. `local.properties
 APK :
 
 - `app/build/outputs/apk/debug/WebhookAlarm-TV-debug.apk`
-- `app/build/outputs/apk/release/WebhookAlarm-TV-release.apk`
+- `app/build/outputs/apk/release/WebhookAlarm-TV-v<version>-<code>-release.apk` (ex. `WebhookAlarm-TV-v1.1.0-2-release.apk`)
 
-Copiez la release dans `server/apk/WebhookAlarm-TV-release.apk` et committez-la. L'image Docker sert ce fichier sur `GET /download`.
+L'écran d'accueil affiche `App v… (code)` pour vérifier la version installée sur la TV.
+
+Copiez la release versionnée dans `server/apk/` (et gardez éventuellement `WebhookAlarm-TV-release.apk` comme alias). `GET /download` sert la APK versionnée la plus récente du dossier.
 
 L'APK release est signé avec le keystore debug pour une installation hors Play Store. Remplacez cette signature avant une diffusion plus large.
 

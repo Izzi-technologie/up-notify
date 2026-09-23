@@ -1,5 +1,6 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import { createReadStream } from "node:fs";
+import { readdirSync } from "node:fs";
 import { stat } from "node:fs/promises";
 import path from "node:path";
 import { Readable } from "node:stream";
@@ -58,16 +59,29 @@ function serverRoot(): string {
   return path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 }
 
+function versionedApks(directory: string): string[] {
+  try {
+    return readdirSync(directory)
+      .filter((name) => name.startsWith("WebhookAlarm-TV-v") && name.endsWith(".apk"))
+      .sort()
+      .reverse()
+      .map((name) => path.join(directory, name));
+  } catch {
+    return [];
+  }
+}
+
 export function apkCandidates(): string[] {
   const configured = process.env.APK_PATH?.trim();
   if (configured) return [configured];
   const root = serverRoot();
+  const apkDir = path.join(root, "apk");
+  const releaseDir = path.resolve(root, "../app/build/outputs/apk/release");
   return [
-    path.join(root, "apk", "WebhookAlarm-TV-release.apk"),
-    path.resolve(
-      root,
-      "../app/build/outputs/apk/release/WebhookAlarm-TV-release.apk",
-    ),
+    ...versionedApks(apkDir),
+    path.join(apkDir, "WebhookAlarm-TV-release.apk"),
+    ...versionedApks(releaseDir),
+    path.join(releaseDir, "WebhookAlarm-TV-release.apk"),
     path.resolve(
       root,
       "../app/build/outputs/apk/debug/WebhookAlarm-TV-debug.apk",

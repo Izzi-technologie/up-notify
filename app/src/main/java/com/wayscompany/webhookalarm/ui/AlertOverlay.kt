@@ -1,10 +1,12 @@
 package com.wayscompany.webhookalarm.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -22,14 +24,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Text
 import com.wayscompany.webhookalarm.alarm.AlertPresentation
 import com.wayscompany.webhookalarm.alarm.AlertState
 import com.wayscompany.webhookalarm.alarm.presentationFor
 import com.wayscompany.webhookalarm.model.AlertEvent
 import com.wayscompany.webhookalarm.ui.theme.AlarmColors
+import com.wayscompany.webhookalarm.ui.theme.AlarmDimens
+import com.wayscompany.webhookalarm.ui.theme.AlarmTypography
 import com.wayscompany.webhookalarm.utils.displayTime
+
+private const val ScrimAlpha = 0.78f
 
 @Composable
 fun AlertOverlay(
@@ -55,33 +60,60 @@ fun AlertOverlay(
 
 @Composable
 private fun InfoBanner(event: AlertEvent) {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-        Column(
-            modifier = Modifier
-                .padding(32.dp)
-                .widthIn(max = 900.dp)
-                .fillMaxWidth()
-                .background(AlarmColors.InfoBackground, RoundedCornerShape(16.dp))
-                .padding(horizontal = 28.dp, vertical = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            Text(text = "INFO", color = AlarmColors.Focus, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-            Text(text = event.title, color = AlarmColors.Text, fontSize = 28.sp)
-            if (event.message.isNotBlank() && event.message != event.title) {
-                Text(text = event.message, color = AlarmColors.Muted, fontSize = 22.sp)
-            }
+    TopBanner(
+        background = AlarmColors.InfoBackground,
+        borderColor = AlarmColors.Focus,
+    ) {
+        Text(
+            text = "INFO",
+            color = AlarmColors.Focus,
+            style = AlarmTypography.sectionTitle,
+            fontWeight = FontWeight.Bold,
+        )
+        Text(
+            text = event.title,
+            color = AlarmColors.Text,
+            style = AlarmTypography.bodyLarge,
+        )
+        if (event.message.isNotBlank() && event.message != event.title) {
+            Text(
+                text = event.message,
+                color = AlarmColors.Muted,
+                style = AlarmTypography.body,
+            )
         }
     }
 }
 
 @Composable
 private fun WarningCard(event: AlertEvent, onDismiss: () -> Unit) {
-    Scrim(alpha = 0.4f) {
-        AlertCard(background = AlarmColors.WarningBackground) {
-            Text(text = "WARNING", color = AlarmColors.Warning, fontSize = 42.sp, fontWeight = FontWeight.Bold)
-            Text(text = event.title, color = AlarmColors.Text, fontSize = 36.sp, textAlign = TextAlign.Center)
+    Scrim {
+        AlertCard(
+            background = AlarmColors.WarningBackground,
+            borderColor = AlarmColors.Warning,
+        ) {
+            Text(
+                text = "WARNING",
+                color = AlarmColors.Warning,
+                style = AlarmTypography.screenTitle,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Text(
+                text = event.title,
+                color = AlarmColors.Text,
+                style = AlarmTypography.bodyLarge,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
             if (event.message.isNotBlank()) {
-                Text(text = event.message, color = AlarmColors.Text, fontSize = 26.sp, textAlign = TextAlign.Center)
+                Text(
+                    text = event.message,
+                    color = AlarmColors.Text,
+                    style = AlarmTypography.body,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
             CloseButton(onDismiss)
         }
@@ -98,37 +130,50 @@ private fun CriticalCard(
     LaunchedEffect(event.id) {
         runCatching { requester.requestFocus() }
     }
-    Scrim(alpha = 0.4f) {
-        AlertCard(background = AlarmColors.CriticalBackground) {
+    Scrim {
+        AlertCard(
+            background = AlarmColors.CriticalBackground,
+            borderColor = AlarmColors.Critical,
+        ) {
             Text(
                 text = "CRITICAL",
                 color = AlarmColors.Critical,
-                fontSize = 48.sp,
-                fontWeight = FontWeight.Bold,
+                style = AlarmTypography.screenTitle,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
             )
             Text(
                 text = event.title.uppercase(),
                 color = AlarmColors.Text,
-                fontSize = 36.sp,
+                style = AlarmTypography.bodyLarge,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
             )
             if (event.message.isNotBlank()) {
                 Text(
                     text = event.message,
                     color = AlarmColors.Text,
-                    fontSize = 26.sp,
+                    style = AlarmTypography.body,
                     textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
             val time = displayTime(event.timestamp)
             if (time != null) {
-                Text(text = "Since $time", color = AlarmColors.Muted, fontSize = 22.sp)
+                Text(
+                    text = "Since $time",
+                    color = AlarmColors.Muted,
+                    style = AlarmTypography.caption,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
             TvButton(
                 text = "ACKNOWLEDGE",
                 onClick = onAcknowledge,
                 modifier = Modifier.focusRequester(requester),
+                variant = TvButtonVariant.Primary,
             )
             CloseButton(onDismiss, requestFocus = false)
         }
@@ -137,48 +182,64 @@ private fun CriticalCard(
 
 @Composable
 private fun AcknowledgedBanner(event: AlertEvent, onDismiss: () -> Unit) {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-        Column(
-            modifier = Modifier
-                .padding(32.dp)
-                .widthIn(max = 900.dp)
-                .fillMaxWidth()
-                .background(AlarmColors.CriticalBackground, RoundedCornerShape(16.dp))
-                .padding(horizontal = 28.dp, vertical = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
+    TopBanner(
+        background = AlarmColors.CriticalBackground,
+        borderColor = AlarmColors.Critical,
+    ) {
+        Text(
+            text = "ACKNOWLEDGED",
+            color = AlarmColors.Critical,
+            style = AlarmTypography.sectionTitle,
+            fontWeight = FontWeight.Bold,
+        )
+        Text(
+            text = event.title,
+            color = AlarmColors.Text,
+            style = AlarmTypography.bodyLarge,
+        )
+        if (event.message.isNotBlank() && event.message != event.title) {
             Text(
-                text = "ACKNOWLEDGED",
-                color = AlarmColors.Critical,
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Bold,
+                text = event.message,
+                color = AlarmColors.Muted,
+                style = AlarmTypography.body,
             )
-            Text(text = event.title, color = AlarmColors.Text, fontSize = 28.sp)
-            if (event.message.isNotBlank() && event.message != event.title) {
-                Text(text = event.message, color = AlarmColors.Muted, fontSize = 22.sp)
-            }
-            CloseButton(onDismiss)
         }
+        CloseButton(onDismiss)
     }
 }
 
 @Composable
 private fun ResolvedCard(event: AlertEvent, onDismiss: () -> Unit) {
-    Scrim(alpha = 0.4f) {
-        AlertCard(background = AlarmColors.Surface) {
-            Text(text = "RESOLVED", color = AlarmColors.Connected, fontSize = 48.sp, fontWeight = FontWeight.Bold)
-            Text(text = event.title, color = AlarmColors.Text, fontSize = 32.sp, textAlign = TextAlign.Center)
+    Scrim {
+        AlertCard(
+            background = AlarmColors.Surface,
+            borderColor = AlarmColors.Connected,
+        ) {
+            Text(
+                text = "RESOLVED",
+                color = AlarmColors.Connected,
+                style = AlarmTypography.screenTitle,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Text(
+                text = event.title,
+                color = AlarmColors.Text,
+                style = AlarmTypography.bodyLarge,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
             CloseButton(onDismiss)
         }
     }
 }
 
 @Composable
-private fun Scrim(alpha: Float, content: @Composable () -> Unit) {
+private fun Scrim(content: @Composable () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(AlarmColors.Background.copy(alpha = alpha)),
+            .background(AlarmColors.Background.copy(alpha = ScrimAlpha)),
         contentAlignment = Alignment.Center,
     ) {
         content()
@@ -186,40 +247,76 @@ private fun Scrim(alpha: Float, content: @Composable () -> Unit) {
 }
 
 @Composable
-private fun AlertCard(background: Color, content: @Composable () -> Unit) {
-    Column(
-        modifier = Modifier
-            .widthIn(max = 920.dp)
-            .fillMaxWidth(0.72f)
-            .focusGroup()
-            .focusProperties { onExit = { cancelFocusChange() } }
-            .background(background, RoundedCornerShape(24.dp))
-            .padding(40.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        content()
+private fun TopBanner(
+    background: Color,
+    borderColor: Color,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    val shape = RoundedCornerShape(AlarmDimens.cornerRadius)
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+        Column(
+            modifier = Modifier
+                .padding(top = AlarmDimens.screenPaddingV)
+                .widthIn(max = AlarmDimens.contentMaxWidth)
+                .fillMaxWidth()
+                .padding(horizontal = AlarmDimens.screenPaddingH)
+                .border(width = 1.dp, color = borderColor, shape = shape)
+                .background(background, shape)
+                .padding(AlarmDimens.cardPadding),
+            verticalArrangement = Arrangement.spacedBy(AlarmDimens.itemGap),
+            content = content,
+        )
     }
 }
 
 @Composable
-private fun CloseButton(onDismiss: () -> Unit, requestFocus: Boolean = true, modifier: Modifier = Modifier) {
+private fun AlertCard(
+    background: Color,
+    borderColor: Color,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    val shape = RoundedCornerShape(AlarmDimens.cornerRadius)
+    Column(
+        modifier = Modifier
+            .widthIn(max = AlarmDimens.contentMaxWidth)
+            .fillMaxWidth(0.72f)
+            .focusGroup()
+            .focusProperties { onExit = { cancelFocusChange() } }
+            .border(width = 1.dp, color = borderColor, shape = shape)
+            .background(background, shape)
+            .padding(AlarmDimens.cardPadding),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(AlarmDimens.itemGap),
+        content = content,
+    )
+}
+
+@Composable
+private fun CloseButton(
+    onDismiss: () -> Unit,
+    requestFocus: Boolean = true,
+    modifier: Modifier = Modifier,
+) {
     val requester = remember { FocusRequester() }
     LaunchedEffect(requestFocus) {
         if (requestFocus) runCatching { requester.requestFocus() }
     }
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
         TvButton(
             text = "CLOSE",
             onClick = onDismiss,
             modifier = modifier.focusRequester(requester),
+            variant = TvButtonVariant.Secondary,
         )
         Text(
             text = "BACK closes",
-            color = AlarmColors.Muted,
-            fontSize = 18.sp,
-            textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth(),
+            color = AlarmColors.Muted,
+            style = AlarmTypography.caption,
+            textAlign = TextAlign.Center,
         )
     }
 }

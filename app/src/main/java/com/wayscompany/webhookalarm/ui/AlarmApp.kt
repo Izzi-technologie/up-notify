@@ -9,7 +9,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wayscompany.webhookalarm.alarm.AlertState
-import com.wayscompany.webhookalarm.model.Severity
 import com.wayscompany.webhookalarm.ui.theme.AlarmColors
 import com.wayscompany.webhookalarm.ui.theme.WebhookAlarmTheme
 
@@ -21,17 +20,15 @@ fun AlarmApp(viewModel: MainViewModel) {
     val alert by viewModel.alert.collectAsStateWithLifecycle()
     val lastEvent by viewModel.lastEvent.collectAsStateWithLifecycle()
     val screen by viewModel.screen.collectAsStateWithLifecycle()
-    val alertBlocksBack = when (val current = alert) {
-        is AlertState.Active -> current.event.severity == Severity.CRITICAL
-        is AlertState.Acknowledged -> true
-        else -> false
-    }
+    val alertVisible = alert !is AlertState.Idle
 
     WebhookAlarmTheme {
-        BackHandler(enabled = screen == AppScreen.Settings && !alertBlocksBack) {
+        BackHandler(enabled = screen == AppScreen.Settings && !alertVisible) {
             viewModel.closeSettings()
         }
-        BackHandler(enabled = alertBlocksBack) {}
+        BackHandler(enabled = alertVisible) {
+            viewModel.dismiss()
+        }
         Box(modifier = Modifier.fillMaxSize().background(AlarmColors.Background)) {
             if (!loaded) {
                 Box(modifier = Modifier.fillMaxSize().background(AlarmColors.Background))
@@ -40,6 +37,7 @@ fun AlarmApp(viewModel: MainViewModel) {
                     connection = connection,
                     initialServerUrl = settings.serverUrl,
                     initialDeviceId = settings.deviceId,
+                    initialAuthToken = settings.authToken,
                     onConnect = viewModel::connect,
                     onContinue = viewModel::continueSetup,
                 )
@@ -60,7 +58,11 @@ fun AlarmApp(viewModel: MainViewModel) {
                     onSettings = viewModel::openSettings,
                 )
             }
-            AlertOverlay(state = alert, onAcknowledge = viewModel::acknowledge)
+            AlertOverlay(
+                state = alert,
+                onAcknowledge = viewModel::acknowledge,
+                onDismiss = viewModel::dismiss,
+            )
         }
     }
 }

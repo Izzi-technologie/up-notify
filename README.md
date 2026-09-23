@@ -40,7 +40,7 @@ Aucun compte Google Play n'est nécessaire.
 
 ## Premier lancement
 
-1. Renseignez l'URL du serveur (`https://alarm.example.com`) et le Device ID (`tv-001`).
+1. Renseignez l'URL du serveur (`https://alarm.example.com`), le Device ID (`tv-001`) et, si le serveur a un `ALARM_TOKEN`, le même secret dans `Token (optional)`.
 2. `CONNECT` ouvre `wss://…/ws` et envoie `register`.
 3. Quand l'état passe à `CONNECTED`, `CONTINUE` ouvre l'écran principal.
 
@@ -48,9 +48,9 @@ Les réglages sont stockés dans DataStore Preferences. Il n'y a pas de base SQL
 
 ## Volume
 
-Chaque niveau a son propre volume (info 40 %, warning 75 %, critical 100 % par défaut).
+Chaque niveau a son propre volume (info 40 %, warning 75 %, critical 100 % par défaut). Ce pourcentage s'applique au volume maximum, pas au niveau actuel de la TV.
 
-`MediaPlayer.setVolume` atténue seulement ce lecteur, sur le flux `USAGE_ALARM`. Le volume système de la TV n'est pas modifié. Il reste le plafond : à 100 %, l'alarme joue au volume actuel de la TV.
+Pendant une alarme, l'application monte les flux alarme et média à ce niveau, puis restaure le volume d'avant. Le baisser avant ou pendant l'alarme ne la rend pas plus faible. Sur une TV dont le volume est fixé par HDMI-CEC, Android refuse ce changement et l'alarme reste au niveau du téléviseur.
 
 ## Alarmes
 
@@ -78,7 +78,7 @@ Au premier démarrage, la TV doit être configurée une fois. Les redémarrages 
 
 `http://` et `ws://` sont autorisés pour un serveur local. En production, utilisez `https://` et `wss://`.
 
-Un token optionnel, vide par défaut, est envoyé en `Authorization: Bearer` s'il est renseigné dans les réglages. Aucun secret n'est compilé dans l'application.
+Le champ `Token (optional)` est sur l'écran de configuration et dans les réglages. Vide, aucun en-tête n'est envoyé. Renseigné, la TV envoie `Authorization: Bearer`. Le même secret va dans `ALARM_TOKEN` sur le serveur. Aucun secret n'est compilé dans l'application.
 
 ## Backend
 

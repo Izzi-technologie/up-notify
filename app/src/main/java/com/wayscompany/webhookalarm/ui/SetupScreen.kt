@@ -28,11 +28,13 @@ fun SetupScreen(
     connection: ConnectionState,
     initialServerUrl: String,
     initialDeviceId: String,
-    onConnect: (serverUrl: String, deviceId: String) -> Unit,
+    initialAuthToken: String,
+    onConnect: (serverUrl: String, deviceId: String, authToken: String) -> Unit,
     onContinue: () -> Unit,
 ) {
     var serverUrl by rememberSaveable { mutableStateOf(initialServerUrl) }
     var deviceId by rememberSaveable { mutableStateOf(initialDeviceId) }
+    var authToken by rememberSaveable { mutableStateOf(initialAuthToken) }
     var error by rememberSaveable { mutableStateOf<String?>(null) }
     Box(
         modifier = Modifier
@@ -56,6 +58,9 @@ fun SetupScreen(
             }
             item {
                 TvTextField(label = "Device ID", value = deviceId, onValueChange = { deviceId = it })
+            }
+            item {
+                TvTextField(label = "Token (optional)", value = authToken, onValueChange = { authToken = it })
             }
             item {
                 Text(
@@ -83,7 +88,7 @@ fun SetupScreen(
                         error = "Server URL and Device ID are required"
                     } else {
                         error = null
-                        onConnect(serverUrl, deviceId)
+                        onConnect(serverUrl, deviceId, authToken)
                     }
                 })
             }

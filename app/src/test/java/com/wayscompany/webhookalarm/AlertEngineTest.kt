@@ -122,6 +122,42 @@ class AlertEngineTest {
     }
 
     @Test
+    fun dismissCriticalAcknowledgesAndClears() = runTest {
+        val audio = FakeAudio()
+        val acks = mutableListOf<String>()
+        val engine = engine(audio, this, acks)
+        engine.onAlert(event("crit-1", Severity.CRITICAL))
+        engine.dismiss()
+        assertEquals(listOf("crit-1"), acks)
+        assertTrue(engine.state.value is AlertState.Idle)
+        assertTrue(audio.stopCount > 0)
+    }
+
+    @Test
+    fun dismissAcknowledgedClearsWithoutAnotherAck() = runTest {
+        val audio = FakeAudio()
+        val acks = mutableListOf<String>()
+        val engine = engine(audio, this, acks)
+        engine.onAlert(event("crit-1", Severity.CRITICAL))
+        engine.acknowledge()
+        engine.dismiss()
+        assertEquals(listOf("crit-1"), acks)
+        assertTrue(engine.state.value is AlertState.Idle)
+    }
+
+    @Test
+    fun dismissInfoClearsWithoutAck() = runTest {
+        val audio = FakeAudio()
+        val acks = mutableListOf<String>()
+        val engine = engine(audio, this, acks)
+        engine.onAlert(event("info-1", Severity.INFO))
+        engine.dismiss()
+        assertTrue(acks.isEmpty())
+        assertTrue(engine.state.value is AlertState.Idle)
+        assertTrue(audio.stopCount > 0)
+    }
+
+    @Test
     fun acknowledgeWithoutActiveAlertDoesNothing() = runTest {
         val audio = FakeAudio()
         val engine = engine(audio, this)

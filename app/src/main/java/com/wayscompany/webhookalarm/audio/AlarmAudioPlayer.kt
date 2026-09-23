@@ -1,12 +1,17 @@
 package com.wayscompany.webhookalarm.audio
 
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.media.MediaPlayer
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import androidx.core.content.ContextCompat
 import com.wayscompany.webhookalarm.R
 import com.wayscompany.webhookalarm.alarm.AlarmAudio
 import com.wayscompany.webhookalarm.alarm.PlaybackRequest
@@ -15,8 +20,8 @@ import com.wayscompany.webhookalarm.utils.AlarmLogger
 /**
  * Plays alarm audio from the service process.
  *
- * Volume is applied with [MediaPlayer.setVolume] on [AudioAttributes.USAGE_ALARM].
- * That scales only this player. The TV's system volume is left unchanged and remains the ceiling.
+ * While an alert plays, [StreamVolumeControl] sets the alarm and media streams to the
+ * alert's percentage of their maximum, then restores the previous TV volume.
  */
 class AlarmAudioPlayer(
     context: Context,
@@ -25,19 +30,26 @@ class AlarmAudioPlayer(
 ) : AlarmAudio {
     private val appContext = context.applicationContext
     private val audioManager = appContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    private val volumeControl = StreamVolumeControl(AndroidStreamVolumeDevice(audioManager, logger))
     private val handler = Handler(Looper.getMainLooper())
     private var player: MediaPlayer? = null
     private var focusRequest: AudioFocusRequest? = null
     private var generation = 0
     private var playsLeft = 0
     private var looping = false
+    private var volumeReceiverRegistered = false
+    private val volumeReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            onMain { volumeControl.hold() }
+        }
+    }
 
     override fun play(request: PlaybackRequest, onFinished: () -> Unit) {
         onMain { playOnMain(request, onFinished) }
     }
 
     override fun stop() {
-        onMain { stopOnMain(notify = true) }
+        onMain { stopOnMain(notify = true, restoreVolume = true) }
     }
 
     fun release() {
@@ -45,7 +57,7 @@ class AlarmAudioPlayer(
     }
 
     private fun playOnMain(request: PlaybackRequest, onFinished: () -> Unit) {
-        stopOnMain(notify = false)
+        stopOnMain(notify = false, restoreVolume = false)
         val token = ++generation
         playsLeft = request.repeatCount.coerceAtLeast(1)
         looping = request.loop
@@ -57,8 +69,8 @@ class AlarmAudioPlayer(
             created.setAudioAttributes(alarmAttributes())
             created.setDataSource(descriptor.fileDescriptor, descriptor.startOffset, descriptor.length)
             descriptor.close()
-            val volume = request.volumePercent.coerceIn(0, 100) / 100f
-            created.setVolume(volume, volume)
+            val level = playerVolume(request.volumePercent)
+            created.setVolume(level, level)
             created.isLooping = request.loop
             created.setOnCompletionListener {
                 onMain {
@@ -70,18 +82,19 @@ class AlarmAudioPlayer(
                 logger.e("Audio playback error")
                 onMain {
                     if (token != generation) return@onMain
-                    stopOnMain(notify = true)
+                    stopOnMain(notify = true, restoreVolume = true)
                     onFinished()
                 }
                 true
             }
             created.prepare()
+            raiseVolume(request.volumePercent)
             created.start()
             requestFocus()
             onPlaybackState(true)
         } catch (error: Throwable) {
             logger.e("Audio playback error", error)
-            stopOnMain(notify = true)
+            stopOnMain(notify = true, restoreVolume = true)
             onFinished()
         }
     }
@@ -95,16 +108,16 @@ class AlarmAudioPlayer(
                 player?.start()
             } catch (error: Throwable) {
                 logger.e("Audio replay failed", error)
-                stopOnMain(notify = true)
+                stopOnMain(notify = true, restoreVolume = true)
                 onFinished()
             }
         } else {
-            stopOnMain(notify = true)
+            stopOnMain(notify = true, restoreVolume = true)
             onFinished()
         }
     }
 
-    private fun stopOnMain(notify: Boolean) {
+    private fun stopOnMain(notify: Boolean, restoreVolume: Boolean) {
         generation++
         val active = player
         player = null
@@ -123,6 +136,46 @@ class AlarmAudioPlayer(
             abandonFocus()
             if (notify) onPlaybackState(false)
         }
+        if (restoreVolume) restoreVolume()
+    }
+
+    private fun playerVolume(percent: Int): Float =
+        if (audioManager.isVolumeFixed) percent.coerceIn(0, 100) / 100f else 1f
+
+    private fun raiseVolume(percent: Int) {
+        if (audioManager.isVolumeFixed) {
+            logger.w("TV volume is fixed; alarm stays at the current level")
+            return
+        }
+        val first = !volumeControl.isEngaged
+        volumeControl.engage(percent)
+        if (first) registerVolumeReceiver()
+        logger.i("Alarm volume set to $percent% of maximum")
+    }
+
+    private fun restoreVolume() {
+        if (!volumeControl.isEngaged) return
+        unregisterVolumeReceiver()
+        volumeControl.release()
+        logger.i("TV volume restored")
+    }
+
+    private fun registerVolumeReceiver() {
+        if (volumeReceiverRegistered) return
+        val filter = IntentFilter(VOLUME_CHANGED_ACTION)
+        ContextCompat.registerReceiver(
+            appContext,
+            volumeReceiver,
+            filter,
+            ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
+        volumeReceiverRegistered = true
+    }
+
+    private fun unregisterVolumeReceiver() {
+        if (!volumeReceiverRegistered) return
+        volumeReceiverRegistered = false
+        runCatching { appContext.unregisterReceiver(volumeReceiver) }
     }
 
     private fun requestFocus() {
@@ -156,5 +209,31 @@ class AlarmAudioPlayer(
         } else {
             handler.post(block)
         }
+    }
+
+    private class AndroidStreamVolumeDevice(
+        private val audioManager: AudioManager,
+        private val logger: AlarmLogger,
+    ) : StreamVolumeDevice {
+        override val isFixed: Boolean get() = audioManager.isVolumeFixed
+
+        override fun volume(stream: Int): Int = audioManager.getStreamVolume(stream)
+
+        override fun min(stream: Int): Int =
+            if (Build.VERSION.SDK_INT >= 28) audioManager.getStreamMinVolume(stream) else 0
+
+        override fun max(stream: Int): Int = audioManager.getStreamMaxVolume(stream)
+
+        override fun set(stream: Int, volume: Int) {
+            try {
+                audioManager.setStreamVolume(stream, volume, 0)
+            } catch (error: Throwable) {
+                logger.e("Unable to set alarm volume", error)
+            }
+        }
+    }
+
+    private companion object {
+        const val VOLUME_CHANGED_ACTION = "android.media.VOLUME_CHANGED_ACTION"
     }
 }

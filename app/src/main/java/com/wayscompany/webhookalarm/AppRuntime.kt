@@ -78,12 +78,13 @@ class AppRuntime(context: Context) {
         settingsRepository.save(settings)
     }
 
-    suspend fun saveConnection(serverUrl: String, deviceId: String) {
+    suspend fun saveConnection(serverUrl: String, deviceId: String, authToken: String) {
         settingsRepository.update { current ->
             current.copy(
                 serverUrl = serverUrl.trim(),
                 deviceId = deviceId.trim(),
                 webSocketUrl = deriveWebSocketUrl(serverUrl),
+                authToken = authToken.trim(),
             )
         }
         connectionRequested.value = true
@@ -95,6 +96,10 @@ class AppRuntime(context: Context) {
 
     fun acknowledge() {
         engine.acknowledge()
+    }
+
+    fun dismiss() {
+        engine.dismiss()
     }
 
     fun test(severity: Severity) {

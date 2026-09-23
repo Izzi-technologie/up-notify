@@ -78,6 +78,31 @@ class AlertEngine(
         return current.event.id
     }
 
+    fun dismiss() {
+        when (val current = _state.value) {
+            AlertState.Idle -> return
+            is AlertState.Resolved -> {
+                resolveJob?.cancel()
+                _state.value = AlertState.Idle
+            }
+            is AlertState.Acknowledged -> {
+                audio.stop()
+                _state.value = AlertState.Idle
+                logger.i("Alert dismissed")
+            }
+            is AlertState.Active -> {
+                resolveJob?.cancel()
+                audio.stop()
+                if (current.policy.requireAck) {
+                    logger.i("Critical alert acknowledged")
+                    onAcknowledge(current.event.id)
+                }
+                _state.value = AlertState.Idle
+                logger.i("Alert dismissed")
+            }
+        }
+    }
+
     fun test(severity: Severity) {
         val label = severity.name.lowercase().replaceFirstChar { it.uppercase() }
         onAlert(
